@@ -1,9 +1,11 @@
 import { Suspense, useEffect, useMemo, useState } from 'react'
-import { ArrowLeftRight, Search, ShieldCheck, Sparkles, Star } from 'lucide-react'
+import { ArrowLeftRight, Newspaper, Search, ShieldCheck, Sparkles, Star } from 'lucide-react'
 import { ToolCard } from './components/ToolCard.jsx'
+import { WhatsNewModal } from './components/WhatsNewModal.jsx'
 import { registeredTools as tools } from './data/toolRegistry.jsx'
 import { useFavoriteTools } from './hooks/useFavoriteTools.js'
 import { readLocalDefaultTool, useToolSettings } from './hooks/useToolSettings.js'
+import { VERSION } from './version.js'
 import './App.css'
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
@@ -39,6 +41,7 @@ function App() {
     const initial = initialTool()
     return [initial, ...readRecentTools().filter((slug) => slug !== initial)].slice(0, 12)
   })
+  const [showWhatsNew, setShowWhatsNew] = useState(false)
   const { favoriteSet, favoritesMessage, toggleFavorite } = useFavoriteTools()
   const { defaultToolSlug, settingsMessage, setDefaultTool } = useToolSettings()
 
@@ -105,6 +108,8 @@ function App() {
   }
 
   return (
+    <>
+    {showWhatsNew && <WhatsNewModal onClose={() => setShowWhatsNew(false)} />}
     <main className="app-shell">
       <header className="topbar">
         <div>
@@ -119,7 +124,12 @@ function App() {
             <span>{liveCount} live</span>
             {plannedCount > 0 && <span>{plannedCount} planned</span>}
             <span>No login</span>
+            <span className="version-badge">v{VERSION}</span>
           </div>
+          <button type="button" className="secondary-button compact-button whats-new-btn" onClick={() => setShowWhatsNew(true)}>
+            <Newspaper size={14} aria-hidden="true" />
+            What's New
+          </button>
         </div>
       </header>
 
@@ -225,6 +235,7 @@ function App() {
         </section>
       </section>
     </main>
+    </>
   )
 }
 

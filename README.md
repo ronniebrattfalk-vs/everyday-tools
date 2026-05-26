@@ -2,7 +2,7 @@
 
 Fast, private tools for everyday work. No signup required.
 
-This is a React + Vite MVP for browser-first utility tools. The current version has a searchable dashboard, category filters, browser-local favorites/default-tool settings, and 48 live local-first tools.
+This is a React + Vite app for browser-first utility tools. The current version has a searchable dashboard, category filters, browser-local favorites/default-tool settings, version badge, and 78 live local-first tools.
 
 ## Run Locally
 
@@ -172,6 +172,73 @@ $env:BASE_PATH='/everyday-tools/'; npm run build
   - Do a browser smoke test across the highest-risk file tools.
   - Review final public copy and deployment URL assumptions.
 
+### Phase 12: Developer Data Tools
+
+1. Completed Number Base Converter: convert between binary, octal, decimal, and hexadecimal with nibble grouping and copy.
+2. Completed JSON To CSV Converter: convert JSON arrays to CSV and CSV back to JSON with column mapping, preview, and export.
+3. Completed Color Format Converter: convert between HEX, RGB, HSL, and OKLCH with a live color picker, preview swatch, and copy.
+4. Completed SQL Formatter: format, indent, and normalize SQL queries with dialect selection (SQL, PostgreSQL, MySQL, SQLite, T-SQL, BigQuery), keyword casing options, and copy.
+5. Completed Semver Helper: parse, compare, and bump patch/minor/major with pre-release and build metadata support.
+6. Completed JSON Diff: compare two JSON objects and highlight added, removed, and changed keys with full path display and copy.
+7. Completed ASCII And Unicode Inspector: look up characters by code point, UTF-8 bytes, HTML entity, and JS/Python escape sequences.
+8. Completed Markdown Table Builder: visual grid editor that generates and copies Markdown table syntax.
+9. Completed HTTP Request Snippet Builder: compose and copy request snippets in curl, fetch, and axios formats from a URL and headers.
+10. Completed Environment File Parser: parse .env files, export as .env, JSON, or shell variable assignments with copy and download.
+
+### Phase 13: Calculators And Reference
+
+1. Completed Tip And Bill Splitter: set tip percentage with a slider or quick presets, split between any number of people, choose rounding mode, and copy the summary.
+2. Completed Loan And Mortgage Calculator: monthly payment, total interest, total paid, and a full year-by-year or month-by-month amortization table with preset scenarios and extra payment support.
+3. Completed Compound Interest Calculator: project investment growth with monthly contributions, show final balance, total contributed, interest earned, and a year-by-year growth table.
+4. Completed Scientific Calculator: full expression evaluator with trig, log, exponents, constants, and input history.
+5. Completed World Clock: show and compare current time across multiple cities, add or remove zones, and copy moments.
+6. Completed Timezone Overlap Finder: set working hours for multiple zones and highlight shared availability windows.
+7. Completed Random Generator: numbers with ranges, dice rolls, coin flips, list shuffling, and random item picks.
+8. Completed Aspect Ratio Calculator: enter width or height and lock the ratio to get the matching dimension, with common presets, a visual preview box, and megapixel count.
+9. Completed Roman Numeral Converter: convert integers to Roman numerals and Roman numerals back to integers with validation, quick examples, and copy.
+10. Completed Number Format Converter: switch between standard, scientific notation, engineering notation, words, ordinals, and locale formats.
+
+### Phase 14: Business And Professional Tools
+
+1. Completed Expense Tracker: local expense log with date, category, amount, notes, category breakdown, and CSV export.
+2. Completed Meeting Cost Calculator: estimate meeting cost from duration, per-person hourly rate, and headcount, with a live ticking timer.
+3. Completed Decision Matrix: weighted criteria scoring table for comparing options with totals, auto-ranking, and copy summary.
+4. Completed Budget Planner: income and expense rows by category with monthly navigation, balance bar, and CSV export.
+5. Completed Quote Generator: estimate and proposal builder with line items, discount, tax, sender persistence, and print/PDF export.
+6. Completed Time Tracker: start/stop timer with project and task tags, session history, project totals, and CSV export.
+7. Completed Changelog Formatter: sort pasted bullet points into Added, Changed, Fixed, Removed, and Deprecated sections with copy.
+8. Completed Email Signature Builder: compose a plain-text or HTML email signature with name, title, links, live preview, and copy actions.
+9. Completed Proofreading Checklist: writing quality analysis for passive voice, filler words, hedging language, long sentences, repeated words, and adverbs with a quality score.
+10. Completed Letter Template Builder: fill sender, recipient, subject, date, and body fields to produce a formatted formal letter; includes job application, complaint, thank you, and recommendation templates.
+
+### Phase 15: Tool Enhancements
+
+- Tone Rewriter — replace static template substitution with real input analysis: detect sentence length, passive constructions, hedging words, filler phrases, and formality level from the pasted text, then apply targeted rewrites per tone rather than applying a fixed template regardless of what was typed. Each output should be meaningfully different from the input and reflect the actual content.
+- Resume Helper — add content analysis alongside template guidance: flag weak action verbs, passive constructions, missing quantification opportunities, and overly long bullets so the user can act on specific suggestions.
+- Text Diff Checker — add word-level diff mode alongside the existing line-level view so small edits inside a line are visible without the whole line being flagged.
+- Regex Tester — add replace mode: let the user supply a replacement string and preview the substituted output alongside the existing match view.
+- CSV Cleaner — add column statistics after parsing: inferred type, null count, unique count, min, and max per column shown in the preview header.
+- Password Generator — add passphrase mode: generate Diceware-style word combinations as a memorable alternative to random character strings.
+- Image Resizer — add batch mode: upload multiple images and download a ZIP of resized outputs with shared settings.
+- PDF Tools — add an optional compression/re-encoding step after merge or split so the output file size can be reduced before download.
+- Color Format Converter (Phase 12) — wire it into Color Contrast Checker so converted color values can be sent directly to the contrast check without copy-pasting.
+- JSON Formatter — add a JSONPath expression field so users can filter or extract values from the formatted output inline.
+
+### Phase 16: Library-Backed Tool Upgrades
+
+Each item below replaces hand-rolled logic or a limited browser API with a focused npm library. All libraries run entirely in the browser — no server calls. Install only when implementing the upgrade for a given tool; do not batch-install upfront.
+
+1. **Text Diff Checker** → install `diff` (jsdiff): replace the hand-rolled line comparison with the `diff` library to unlock word-level and character-level diff modes, unified-format output, and configurable context lines. Aligns with the Phase 15 word-level diff enhancement.
+2. **SVG Optimizer** → install `svgo`: replace the current metadata-strip-and-sanitize approach with real SVGO optimization passes (remove redundant attributes, merge transforms, collapse groups, optimize path data, remove comments and doctype). Show a before/after byte-size reduction.
+3. **Document Metadata Cleaner** → install `exifr`: replace hint-based detection with actual EXIF/IPTC/XMP extraction from JPEG, TIFF, PNG, and HEIC files locally. Display GPS coordinates, camera make/model, date taken, software, copyright, and all raw tags in a searchable table.
+4. **Markdown Previewer** → install `highlight.js` (language auto-detect, tree-shakeable): wire it into the `marked` renderer so fenced code blocks get full syntax highlighting. Register only the most common languages (js, ts, python, bash, sql, json, css, html, yaml, go, rust) to keep the chunk small.
+5. **Image Cropper** → install `cropperjs`: replace the manual coordinate-input approach with an interactive drag-to-crop canvas UI including handles, zoom, rotation, and aspect-ratio lock. Dramatically better UX for cropping photos and screenshots.
+6. **Semver Helper** → install `semver`: replace the hand-rolled version parser with the canonical `semver` package to add range parsing (`^1.0.0`, `~1.2.x`, `>=1.0.0 <2.0.0`), `satisfies` checks, `maxSatisfying`, `validRange`, and full pre-release spec compliance.
+7. **SSL Certificate Decoder** → install `node-forge`: replace the basic PEM inspection with full X.509 parsing — extract Subject Alternative Names, issuer chain, key usage extensions, signature algorithm, public key size, and all extensions in a readable table.
+8. **Hash Generator** → install `spark-md5` and `crc-32`: add MD5 (still widely used for checksums and legacy compatibility) and CRC32 to the existing SHA-1/256/384/512 outputs. Web Crypto does not support either algorithm.
+9. **Date Difference Calculator** → install `date-fns`: replace the manual business-day loop with `date-fns` `differenceInBusinessDays` and related helpers for accurate weekday-only counts, and use its formatting utilities for the copy summary output.
+10. **Image Resizer** → install `browser-image-compression`: add a quality-preserving compression mode alongside the existing canvas resize, producing significantly smaller files than the canvas `toBlob` quality parameter alone. Also install `jszip` to power the Phase 15 batch-download feature.
+
 ## Acceptance Checklist
 
 - Each live tool works without a server request.
@@ -185,9 +252,11 @@ $env:BASE_PATH='/everyday-tools/'; npm run build
 
 ## Project Shape
 
-- `src/App.jsx`: main app layout, dashboard, active tool routing, and tool URLs.
-- `src/components/`: shared UI components.
+- `src/App.jsx`: main app layout, dashboard, active tool routing, tool URLs, and What's New button.
+- `src/version.js`: current version string and release date.
+- `src/components/`: shared UI components including `WhatsNewModal.jsx`.
 - `src/data/tools.js`: tool metadata, roadmap metadata, and component module metadata.
 - `src/data/toolRegistry.jsx`: lazy component loading and icon registry derived from tool metadata.
+- `src/data/changelog.js`: phase-by-phase changelog data for the What's New modal.
 - `src/hooks/`: browser-local UI state hooks.
 - `src/tools/`: individual browser-only tools.
