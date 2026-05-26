@@ -1,8 +1,6 @@
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { ArrowLeftRight, Search, ShieldCheck, Sparkles, Star } from 'lucide-react'
-import { AuthControls } from './components/AuthControls.jsx'
 import { ToolCard } from './components/ToolCard.jsx'
-import { useAuth } from './context/auth.js'
 import { registeredTools as tools } from './data/toolRegistry.jsx'
 import { useFavoriteTools } from './hooks/useFavoriteTools.js'
 import { readLocalDefaultTool, useToolSettings } from './hooks/useToolSettings.js'
@@ -33,7 +31,6 @@ function readRecentTools() {
 }
 
 function App() {
-  const { user } = useAuth()
   const [activeTool, setActiveTool] = useState(initialTool)
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('All')
@@ -42,8 +39,8 @@ function App() {
     const initial = initialTool()
     return [initial, ...readRecentTools().filter((slug) => slug !== initial)].slice(0, 12)
   })
-  const { favoriteSet, favoritesMessage, toggleFavorite } = useFavoriteTools(user)
-  const { defaultToolSlug, settingsMessage, setDefaultTool } = useToolSettings(user)
+  const { favoriteSet, favoritesMessage, toggleFavorite } = useFavoriteTools()
+  const { defaultToolSlug, settingsMessage, setDefaultTool } = useToolSettings()
 
   const categories = useMemo(
     () => ['All', 'Favorites', ...Array.from(new Set(tools.map((tool) => tool.category)))],
@@ -121,9 +118,8 @@ function App() {
           <div className="topbar-stats" aria-label="Product status">
             <span>{liveCount} live</span>
             {plannedCount > 0 && <span>{plannedCount} planned</span>}
-            <span>Login optional</span>
+            <span>No login</span>
           </div>
-          <AuthControls />
         </div>
       </header>
 

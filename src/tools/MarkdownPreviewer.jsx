@@ -10,7 +10,7 @@ Fast, private tools for everyday work.
 ## Highlights
 
 - Browser-first utilities
-- Optional Supabase login
+- No login required
 - Local file processing by default
 
 **Next:** keep adding focused tools that solve small daily jobs well.

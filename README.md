@@ -2,7 +2,7 @@
 
 Fast, private tools for everyday work. No signup required.
 
-This is a React + Vite MVP for browser-first utility tools. The current version has a searchable dashboard, category filters, optional favorites/default-tool sync, and 48 live local-first tools.
+This is a React + Vite MVP for browser-first utility tools. The current version has a searchable dashboard, category filters, browser-local favorites/default-tool settings, and 48 live local-first tools.
 
 ## Run Locally
 
@@ -12,30 +12,6 @@ npm run dev
 ```
 
 Open `http://127.0.0.1:5173`.
-
-## Optional Supabase Auth Setup
-
-The app keeps all tools available without login. Supabase is only used for optional accounts and future signed-in features.
-
-1. Create a Supabase project at `https://database.new`.
-2. In the Supabase dashboard, open the project and copy the **Project URL** and **Publishable key**.
-3. Create `.env.local` from `.env.example`:
-
-```env
-VITE_SUPABASE_URL=https://your-project-ref.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_your_key_here
-```
-
-4. In Supabase, open **Authentication** and configure allowed redirect URLs for local development:
-
-```text
-http://127.0.0.1:5173/
-http://localhost:5173/
-```
-
-5. Enable social providers in **Authentication > Providers** when needed. Google, Facebook, GitHub, Apple, Microsoft, and LinkedIn buttons are already present in the app, but each provider needs its own Supabase/provider-console setup before it can complete login.
-
-6. To sync favorite tools and default tool settings for signed-in users, open **SQL Editor** in Supabase and run `supabase/schema.sql`.
 
 ## Deploy To GitHub Pages
 
@@ -105,27 +81,13 @@ $env:BASE_PATH='/everyday-tools/'; npm run build
 - Supports drag/drop, PNG/JPG upload, PDF upload, page ranges, page size, orientation, margins, file ordering, removal, output naming, and PDF download.
 - Later improvement: add compression after file handling quality is tested.
 
-### Phase 6: Optional Accounts And Subscriptions
+### Phase 6: Static Publishing And Local Preferences
 
-- Keep every tool free and usable without an account during the current MVP.
-- Add a topbar **Log in** button and **Sign up** entry point without blocking anonymous users.
-- Support social signup/login through common providers: Google, Facebook, Apple, Microsoft, GitHub, and LinkedIn.
-- Recommended implementation path: use Supabase Auth first, then add Stripe Billing only when paid features exist.
-- Chosen stack:
-  - Supabase Auth for email login, magic links, social OAuth, sessions, user profiles, and future database-backed saved tools.
-  - Supabase Postgres for optional account data such as favorites, saved settings, invoice templates, and draft history.
-  - Stripe Billing / Checkout for paid subscriptions, invoices, trials, coupons, and customer portal access once there is a real paid tier.
-- Initial account features should be useful but optional: saved drafts, recent files metadata, favorite tools, and default settings.
-- Rollout plan:
-  - Step 1: Add optional Supabase login/signup UI while keeping anonymous access.
-  - Step 2: Add signed-in benefits such as favorite tools, saved default tool settings, and reusable invoice templates.
-  - Step 3: Add Stripe customer records and subscription status syncing.
-  - Step 4: Gate only future Pro features, never the current free browser-local tools.
-- Subscription model draft:
-  - Free: all current tools, no login required.
-  - Signed-in Free: saved preferences, favorites, and draft history.
-  - Pro later: batch processing, larger file limits, saved templates, team sharing, and priority export features.
-- Do not store uploaded files by default. Keep file tools browser-local unless the user explicitly saves something to their account.
+- Keep every tool free and usable without an account.
+- Remove login, signup, OAuth, Supabase, and subscription wiring from the web application for now.
+- Keep useful personalization local to the browser: favorite tools, recent tools, and the default tool.
+- Keep file tools browser-local and avoid uploading user files by default.
+- Revisit account and subscription features only after the static site is publishing reliably.
 
 ### Phase 7: Next Tool Candidates
 
@@ -186,8 +148,7 @@ $env:BASE_PATH='/everyday-tools/'; npm run build
 - Keep protecting the strengths that are working well:
   - One file per tool in `src/tools/`, lazy-loaded tool screens, and low coupling between tools.
   - Lean dependencies limited to libraries that directly support live tools.
-  - Real privacy-first behavior: no analytics, no tracking, no CDN calls, no backend dependency for anonymous use.
-  - Optional Supabase auth only for signed-in preferences such as favorites and default tool settings.
+  - Real privacy-first behavior: no analytics, no tracking, no CDN calls, no auth, and no backend dependency.
 - Completed registry refactor:
   - Each tool entry in `src/data/tools.js` now includes its lazy-load component metadata.
   - `src/data/toolRegistry.jsx` derives lazy components and icon components from the registry.
@@ -201,6 +162,9 @@ $env:BASE_PATH='/everyday-tools/'; npm run build
   - The old `queueMicrotask` timing dependency was removed.
 - Completed prerelease version bump:
   - `package.json` and `package-lock.json` are now `0.1.0-beta.1`.
+- Completed static-app rollback:
+  - Login, signup, OAuth, Supabase client code, environment placeholders, and database schema files were removed.
+  - Favorites, recent tools, and default tool settings remain browser-local.
 - Completed verification pass:
   - `npm run lint` and `npm run build` pass.
   - Local Vite boot check and representative direct routes return HTTP 200.
@@ -215,10 +179,9 @@ $env:BASE_PATH='/everyday-tools/'; npm run build
 - Copy/download/print actions give visible feedback.
 - Layout works on mobile and desktop.
 - `npm run lint` and `npm run build` pass before release.
-- Account features are optional until paid tools exist.
-- Anonymous users can still access every free tool.
-- Uploaded files remain local unless the user explicitly chooses account storage.
-- Favorite tools and default tool settings work locally for anonymous users and sync to Supabase for signed-in users after `supabase/schema.sql` is applied.
+- No account, login, signup, OAuth, or backend setup is required.
+- Uploaded files remain local.
+- Favorite tools and default tool settings work locally in the browser.
 
 ## Project Shape
 
@@ -226,6 +189,5 @@ $env:BASE_PATH='/everyday-tools/'; npm run build
 - `src/components/`: shared UI components.
 - `src/data/tools.js`: tool metadata, roadmap metadata, and component module metadata.
 - `src/data/toolRegistry.jsx`: lazy component loading and icon registry derived from tool metadata.
-- `src/hooks/`: browser and account-backed UI state hooks.
-- `supabase/schema.sql`: database tables and row-level security policies for optional account features.
+- `src/hooks/`: browser-local UI state hooks.
 - `src/tools/`: individual browser-only tools.
