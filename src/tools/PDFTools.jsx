@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { PDFDocument } from 'pdf-lib'
-import { Download, FileImage, Files, MoveDown, MoveUp, Trash2, XCircle } from 'lucide-react'
+import { Download, FileImage, Files, MoveDown, MoveUp, Scissors, Trash2, XCircle } from 'lucide-react'
 
 const pageSizes = {
   A4: [595.28, 841.89],
@@ -28,6 +28,47 @@ function downloadBytes(bytes, filename) {
   link.download = filename
   link.click()
   URL.revokeObjectURL(url)
+}
+
+function parsePageRanges(value, pageCount) {
+  const clean = value.trim()
+  if (!clean || clean.toLowerCase() === 'all') {
+    return Array.from({ length: pageCount }, (_, index) => index)
+  }
+
+  const selected = []
+  const seen = new Set()
+  const parts = clean.split(',').map((part) => part.trim()).filter(Boolean)
+
+  for (const part of parts) {
+    const match = part.match(/^(\d+)(?:\s*-\s*(\d+))?$/)
+    if (!match) {
+      throw new Error('Use page numbers like 1, 3-5, 8')
+    }
+
+    const start = Number(match[1])
+    const end = Number(match[2] || match[1])
+    if (start < 1 || end < 1 || start > pageCount || end > pageCount) {
+      throw new Error(`Pages must be between 1 and ${pageCount}`)
+    }
+    if (end < start) {
+      throw new Error('Page ranges must go from low to high')
+    }
+
+    for (let page = start; page <= end; page += 1) {
+      const index = page - 1
+      if (!seen.has(index)) {
+        seen.add(index)
+        selected.push(index)
+      }
+    }
+  }
+
+  if (!selected.length) {
+    throw new Error('Choose at least one page')
+  }
+
+  return selected
 }
 
 async function readImageDimensions(file) {
@@ -60,11 +101,14 @@ export function PDFTools() {
   const [mode, setMode] = useState('images')
   const [images, setImages] = useState([])
   const [pdfs, setPdfs] = useState([])
+  const [splitPdf, setSplitPdf] = useState(null)
+  const [splitPages, setSplitPages] = useState('all')
   const [pageSize, setPageSize] = useState('A4')
   const [orientation, setOrientation] = useState('portrait')
   const [margin, setMargin] = useState(36)
   const [imageOutputName, setImageOutputName] = useState('images.pdf')
   const [mergeOutputName, setMergeOutputName] = useState('merged.pdf')
+  const [splitOutputName, setSplitOutputName] = useState('split.pdf')
   const [message, setMessage] = useState('')
   const [isWorking, setIsWorking] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
@@ -96,13 +140,45 @@ export function PDFTools() {
     setMessage(nextPdfs.length ? `${nextPdfs.length} PDF${nextPdfs.length === 1 ? '' : 's'} added` : 'Use PDF files')
   }
 
+  async function addSplitPdf(files) {
+    const file = Array.from(files || []).find((item) => item.type === 'application/pdf' || item.name.toLowerCase().endsWith('.pdf'))
+    if (!file) {
+      setMessage('Use one PDF file')
+      return
+    }
+
+    setIsWorking(true)
+    setMessage('Reading PDF')
+
+    try {
+      const bytes = await file.arrayBuffer()
+      const source = await PDFDocument.load(bytes)
+      const pageCount = source.getPageCount()
+      setSplitPdf({
+        id: crypto.randomUUID(),
+        file,
+        pageCount,
+      })
+      setSplitPages('all')
+      setSplitOutputName(normalizePdfName(file.name.replace(/\.pdf$/i, '-split'), 'split.pdf'))
+      setMessage(`${file.name} loaded with ${pageCount} page${pageCount === 1 ? '' : 's'}`)
+    } catch (error) {
+      setSplitPdf(null)
+      setMessage(`Could not read PDF: ${error.message}`)
+    } finally {
+      setIsWorking(false)
+    }
+  }
+
   function handleDrop(event) {
     event.preventDefault()
     setIsDragging(false)
     if (mode === 'images') {
       addImages(event.dataTransfer.files)
-    } else {
+    } else if (mode === 'merge') {
       addPdfs(event.dataTransfer.files)
+    } else {
+      addSplitPdf(event.dataTransfer.files)
     }
   }
 
@@ -115,6 +191,12 @@ export function PDFTools() {
   function clearPdfs() {
     setPdfs([])
     setMessage('PDF list cleared')
+  }
+
+  function clearSplitPdf() {
+    setSplitPdf(null)
+    setSplitPages('all')
+    setMessage('Split PDF cleared')
   }
 
   function removeImage(id) {
@@ -202,8 +284,38 @@ export function PDFTools() {
     }
   }
 
-  const activeCount = mode === 'images' ? images.length : pdfs.length
-  const activeSize = mode === 'images' ? totalImageSize : totalPdfSize
+  async function splitSelectedPdf() {
+    if (!splitPdf) {
+      setMessage('Add one PDF first')
+      return
+    }
+
+    setIsWorking(true)
+    setMessage('Splitting PDF')
+
+    try {
+      const sourceBytes = await splitPdf.file.arrayBuffer()
+      const source = await PDFDocument.load(sourceBytes)
+      const pageIndices = parsePageRanges(splitPages, source.getPageCount())
+      const output = await PDFDocument.create()
+      const copiedPages = await output.copyPages(source, pageIndices)
+      copiedPages.forEach((page) => output.addPage(page))
+
+      const outputBytes = await output.save()
+      downloadBytes(outputBytes, normalizePdfName(splitOutputName, 'split.pdf'))
+      setMessage(`Created PDF with ${pageIndices.length} page${pageIndices.length === 1 ? '' : 's'}`)
+    } catch (error) {
+      setMessage(`Could not split PDF: ${error.message}`)
+    } finally {
+      setIsWorking(false)
+    }
+  }
+
+  const activeCount = mode === 'images' ? images.length : mode === 'merge' ? pdfs.length : splitPdf ? 1 : 0
+  const activeSize = mode === 'images' ? totalImageSize : mode === 'merge' ? totalPdfSize : splitPdf?.file.size || 0
+  const uploadIcon = mode === 'images' ? <FileImage size={30} aria-hidden="true" /> : mode === 'merge' ? <Files size={30} aria-hidden="true" /> : <Scissors size={30} aria-hidden="true" />
+  const uploadTitle = mode === 'images' ? 'Add PNG or JPG images' : mode === 'merge' ? 'Add PDF files' : 'Add one PDF to split'
+  const uploadHint = mode === 'images' ? 'Each image becomes one PDF page.' : mode === 'merge' ? 'Files are merged in the order shown.' : 'Choose all pages or a range after upload.'
 
   return (
     <div className="tool-body pdf-tool">
@@ -214,6 +326,9 @@ export function PDFTools() {
           </button>
           <button type="button" className={mode === 'merge' ? 'is-active' : ''} onClick={() => setMode('merge')}>
             Merge PDFs
+          </button>
+          <button type="button" className={mode === 'split' ? 'is-active' : ''} onClick={() => setMode('split')}>
+            Split PDF
           </button>
         </div>
 
@@ -226,14 +341,19 @@ export function PDFTools() {
           onDragLeave={() => setIsDragging(false)}
           onDrop={handleDrop}
         >
-          {mode === 'images' ? <FileImage size={30} aria-hidden="true" /> : <Files size={30} aria-hidden="true" />}
-          <span>{mode === 'images' ? 'Add PNG or JPG images' : 'Add PDF files'}</span>
-          <small>{mode === 'images' ? 'Each image becomes one PDF page.' : 'Files are merged in the order shown.'}</small>
+          {uploadIcon}
+          <span>{uploadTitle}</span>
+          <small>{uploadHint}</small>
           <input
             type="file"
             accept={mode === 'images' ? 'image/png,image/jpeg' : 'application/pdf,.pdf'}
-            multiple
-            onChange={(event) => (mode === 'images' ? addImages(event.target.files) : addPdfs(event.target.files))}
+            multiple={mode !== 'split'}
+            onChange={(event) => {
+              if (mode === 'images') addImages(event.target.files)
+              if (mode === 'merge') addPdfs(event.target.files)
+              if (mode === 'split') addSplitPdf(event.target.files)
+              event.target.value = ''
+            }}
           />
         </label>
 
@@ -265,27 +385,42 @@ export function PDFTools() {
               <input value={imageOutputName} onChange={(event) => setImageOutputName(event.target.value)} />
             </label>
           </>
-        ) : (
+        ) : mode === 'merge' ? (
           <label>
             Output file name
             <input value={mergeOutputName} onChange={(event) => setMergeOutputName(event.target.value)} />
           </label>
+        ) : (
+          <>
+            <label>
+              Pages
+              <input
+                value={splitPages}
+                onChange={(event) => setSplitPages(event.target.value)}
+                placeholder="all or 1-3, 5"
+              />
+            </label>
+            <label>
+              Output file name
+              <input value={splitOutputName} onChange={(event) => setSplitOutputName(event.target.value)} />
+            </label>
+          </>
         )}
 
         <div className="button-row">
           <button
             type="button"
             className="primary-button"
-            onClick={mode === 'images' ? createPdf : mergePdfs}
+            onClick={mode === 'images' ? createPdf : mode === 'merge' ? mergePdfs : splitSelectedPdf}
             disabled={isWorking || activeCount === 0}
           >
             <Download size={17} aria-hidden="true" />
-            {mode === 'images' ? 'Download PDF' : 'Download merged PDF'}
+            {mode === 'images' ? 'Download PDF' : mode === 'merge' ? 'Download merged PDF' : 'Download split PDF'}
           </button>
           <button
             type="button"
             className="secondary-button"
-            onClick={mode === 'images' ? clearImages : clearPdfs}
+            onClick={mode === 'images' ? clearImages : mode === 'merge' ? clearPdfs : clearSplitPdf}
             disabled={activeCount === 0}
           >
             <XCircle size={17} aria-hidden="true" />
@@ -297,7 +432,7 @@ export function PDFTools() {
         </p>
       </section>
 
-      <section className="pdf-image-list" aria-label={mode === 'images' ? 'Selected images' : 'Selected PDFs'}>
+      <section className="pdf-image-list" aria-label={mode === 'images' ? 'Selected images' : mode === 'merge' ? 'Selected PDFs' : 'Selected PDF'}>
         {mode === 'images' ? (
           images.length === 0 ? (
             <div className="empty-state">
@@ -328,12 +463,13 @@ export function PDFTools() {
               </article>
             ))
           )
-        ) : pdfs.length === 0 ? (
+        ) : mode === 'merge' ? (
+          pdfs.length === 0 ? (
           <div className="empty-state">
             <Files size={28} aria-hidden="true" />
             <p>No PDFs selected yet.</p>
           </div>
-        ) : (
+          ) : (
           pdfs.map((pdf, index) => (
             <article className="pdf-image-card pdf-file-card" key={pdf.id}>
               <div className="pdf-file-icon">
@@ -356,6 +492,29 @@ export function PDFTools() {
               </div>
             </article>
           ))
+          )
+        ) : splitPdf ? (
+          <article className="pdf-image-card pdf-file-card" key={splitPdf.id}>
+            <div className="pdf-file-icon">
+              <Scissors size={24} aria-hidden="true" />
+            </div>
+            <div>
+              <strong>{splitPdf.file.name}</strong>
+              <span>
+                {splitPdf.pageCount} page{splitPdf.pageCount === 1 ? '' : 's'} - {formatBytes(splitPdf.file.size)}
+              </span>
+            </div>
+            <div className="pdf-card-actions">
+              <button type="button" className="icon-button danger" onClick={clearSplitPdf} aria-label="Remove PDF">
+                <Trash2 size={16} aria-hidden="true" />
+              </button>
+            </div>
+          </article>
+        ) : (
+          <div className="empty-state">
+            <Scissors size={28} aria-hidden="true" />
+            <p>No PDF selected yet.</p>
+          </div>
         )}
       </section>
     </div>
