@@ -43,7 +43,7 @@ function inspectAddress(value) {
       : lower.startsWith('fe80:') ? 'Link-local'
       : lower.startsWith('fc') || lower.startsWith('fd') ? 'Unique local'
       : lower.startsWith('ff') ? 'Multicast'
-      : 'Global or reserved'
+      : 'Global unicast'
     return {
       version: 'IPv6',
       type,
@@ -64,6 +64,16 @@ function inspectAddress(value) {
   }
 }
 
+const LOOKUP_ELIGIBLE = new Set(['Public', 'Global unicast'])
+
+const RIR_COLORS = {
+  ARIN:    '#0ea5e9',
+  RIPE:    '#f97316',
+  APNIC:   '#22c55e',
+  LACNIC:  '#a78bfa',
+  AFRINIC: '#ef4444',
+}
+
 export function IPAddressInspector() {
   const [address, setAddress] = useState('192.168.1.25')
   const [message, setMessage] = useState('')
@@ -80,11 +90,13 @@ export function IPAddressInspector() {
       `Numeric: ${result.numeric}`,
     ]
     if (lookupResult) {
-      if (lookupResult.prefix) parts.push(`Prefix: ${lookupResult.prefix}`)
-      if (lookupResult.asn) parts.push(`ASN: ${lookupResult.asn}${lookupResult.asnName ? ` — ${lookupResult.asnName}` : ''}`)
+      if (lookupResult.ptr)          parts.push(`Reverse DNS: ${lookupResult.ptr}`)
+      if (lookupResult.prefix)       parts.push(`Prefix: ${lookupResult.prefix}`)
+      if (lookupResult.asn)          parts.push(`ASN: ${lookupResult.asn}${lookupResult.asnName ? ` — ${lookupResult.asnName}` : ''}`)
       if (lookupResult.organization) parts.push(`Organization: ${lookupResult.organization}`)
-      if (lookupResult.country) parts.push(`Country: ${lookupResult.country}`)
-      if (lookupResult.registry) parts.push(`Registry: ${lookupResult.registry}`)
+      if (lookupResult.country)      parts.push(`Country: ${lookupResult.country}`)
+      if (lookupResult.registry)     parts.push(`Registry: ${lookupResult.registry}`)
+      if (lookupResult.abuseContact) parts.push(`Abuse contact: ${lookupResult.abuseContact}`)
     }
     await navigator.clipboard.writeText(parts.join('\n'))
     setMessage('IP summary copied')
@@ -118,7 +130,8 @@ export function IPAddressInspector() {
     }
   }
 
-  const canLookup = result.valid && (result.type === 'Public' || result.type === 'Global or reserved')
+  const canLookup = result.valid && LOOKUP_ELIGIBLE.has(result.type)
+  const rirColor = lookupResult?.registry ? RIR_COLORS[lookupResult.registry] : null
 
   return (
     <div className="tool-body network-tool">
@@ -187,8 +200,28 @@ export function IPAddressInspector() {
 
       {lookupState === 'done' && lookupResult && (
         <section className="ip-lookup-card">
-          <h4 className="ip-lookup-title">Network ownership</h4>
+          <div className="ip-lookup-header">
+            <h4 className="ip-lookup-title">Network ownership</h4>
+            {rirColor && (
+              <span
+                className="ip-lookup-rir-badge"
+                style={{
+                  background: `${rirColor}1a`,
+                  borderColor: `${rirColor}44`,
+                  color: rirColor,
+                }}
+              >
+                {lookupResult.registry}
+              </span>
+            )}
+          </div>
           <div className="ip-lookup-grid">
+            {lookupResult.ptr && (
+              <div className="ip-lookup-row ip-lookup-row--wide">
+                <span className="ip-lookup-label">Reverse DNS</span>
+                <span className="ip-lookup-value">{lookupResult.ptr}</span>
+              </div>
+            )}
             {lookupResult.prefix && (
               <div className="ip-lookup-row">
                 <span className="ip-lookup-label">Prefix</span>
@@ -221,10 +254,15 @@ export function IPAddressInspector() {
                 <span className="ip-lookup-value">{lookupResult.networkName}</span>
               </div>
             )}
-            {lookupResult.registry && (
+            {lookupResult.abuseContact && (
               <div className="ip-lookup-row">
-                <span className="ip-lookup-label">Registry</span>
-                <span className="ip-lookup-value">{lookupResult.registry}</span>
+                <span className="ip-lookup-label">Abuse contact</span>
+                <a
+                  href={`mailto:${lookupResult.abuseContact}`}
+                  className="ip-lookup-value ip-lookup-value--link"
+                >
+                  {lookupResult.abuseContact}
+                </a>
               </div>
             )}
           </div>

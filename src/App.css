@@ -8723,6 +8723,12 @@ input[type='range'] {
   font-size: 0.84rem;
 }
 
+.ip-lookup-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .ip-lookup-title {
   margin: 0;
   font-size: 0.76rem;
@@ -8730,6 +8736,17 @@ input[type='range'] {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
+}
+
+.ip-lookup-rir-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  border: 1px solid;
 }
 
 .ip-lookup-grid {
@@ -8741,6 +8758,10 @@ input[type='range'] {
 .ip-lookup-row {
   display: grid;
   gap: 4px;
+}
+
+.ip-lookup-row--wide {
+  grid-column: 1 / -1;
 }
 
 .ip-lookup-label {
@@ -8756,6 +8777,15 @@ input[type='range'] {
   color: var(--heading);
   font-weight: 600;
   overflow-wrap: anywhere;
+}
+
+.ip-lookup-value--link {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.ip-lookup-value--link:hover {
+  text-decoration: underline;
 }
 
 .ip-lookup-links {
@@ -8784,8 +8814,8 @@ input[type='range'] {
 }
 
 @keyframes ip-lookup-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from { rotate: 0deg; }
+  to { rotate: 360deg; }
 }
 
 .ip-lookup-spin {
