@@ -316,6 +316,15 @@ Full UX overhaul. The app now ships with a sticky dark sidebar, breadcrumb topba
 
 ---
 
+### Phase 28: AS2 Header Inspector And OFTP2 Record Decoder
+
+First two browser-local protocol tools from the Phase 25 roadmap. Both run entirely in the browser — no API or backend required.
+
+1. **Completed AS2 Header Inspector** → Paste raw AS2 HTTP headers; the tool parses AS2-From/To, Message-ID, Content-Type, Disposition-Notification-To/Options, and Receipt-Delivery-Option. Shows MDN type (sync/async/none), signing and encryption status, flags missing required headers, and provides a per-field description from the AS2 spec.
+2. **Completed OFTP2 Record Decoder** → Paste a raw OFTP2 command string (ASCII or hex dump); the tool identifies the command type from the leading byte (SSRM, SSID, SFID, EFID, EERP, NERP, SFNA, ESID, RTR, CDT, DATA) and shows a field-by-field breakdown with names, extracted values, and RFC 5024 spec notes.
+
+---
+
 ### Phase 25: Browser-Local Communication And Protocol Tools
 
 All tools in this phase run entirely in the browser with no backend required. They work with pasted or typed input only — no live connections.
@@ -354,9 +363,9 @@ The tunnel infrastructure is already in place using VS Code Dev Tunnels. The bro
 
 | Service | Local port | Public Dev Tunnel URL |
 |---|---|---|
-| OFTP2 server | 6619 | `https://z53gn2x9-6619.euw.devtunnels.ms/` |
-| AS2 server | 8443 | `https://z53gn2x9-8443.euw.devtunnels.ms/` |
-| Communication API | 10443 | `https://z53gn2x9-10443.euw.devtunnels.ms/` |
+| OFTP2 server | 6619 | `https://<session-id>-6619.euw.devtunnels.ms/` |
+| AS2 server | 8443 | `https://<session-id>-8443.euw.devtunnels.ms/` |
+| Communication API | 10443 | `https://<session-id>-10443.euw.devtunnels.ms/` |
 | Dashboard (local only) | 8787 | — |
 
 The Communication admin API is running on port 10443 and is the entry point for all browser tool calls. OFTP2 and AS2 tunnels expose the live protocol servers directly for partner-to-partner testing.
@@ -365,7 +374,7 @@ The Communication admin API is running on port 10443 and is the entry point for 
 
 ```text
 Work PC browser → everyday-tools on Cloudflare
-  → browser calls https://z53gn2x9-10443.euw.devtunnels.ms/api/test/as2
+  → browser calls https://<session-id>-10443.euw.devtunnels.ms/api/test/as2
   → VS Code Dev Tunnel routes request to localhost:10443 on home PC
   → Communication service runs the real AS2/OFTP2/FTP/SFTP test
   → result returned to browser
@@ -387,6 +396,53 @@ For Cloudflare Worker-specific tools (no home PC required):
 
 1. **HTTPS Endpoint Health Checker** → Live reachability and certificate check for any HTTPS URL via a Worker.
 2. **HTTP Header Fetcher** → Fetch real response headers from a URL via Worker proxy and feed them into the existing HTTP Header Analyzer.
+
+### Phase 28: IP Address Inspector Network Lookup
+
+Adds an optional live lookup mode to `IP Address Inspector` so the tool can show ownership and routing context for public IPs, not just local parsing and classification.
+
+**Recommended implementation path:**
+
+- Use a Cloudflare Worker as the lookup layer, not direct browser calls to WHOIS servers.
+- The Worker should accept an IP, validate it, and call HTTP APIs with `fetch()`.
+- Start with RDAP-style and RIPE-friendly HTTP sources first, then normalize the result into one compact JSON response for the app.
+
+**Why this is the recommended approach:**
+
+- It works cleanly on Cloudflare because Workers handle outbound HTTPS requests well.
+- It avoids browser CORS issues and avoids exposing third-party API details directly in the frontend.
+- It is much more reliable than raw WHOIS on port `43`, especially for a browser-first tool.
+- It keeps the app deployment simple: the static frontend calls one Worker endpoint and the Worker handles the external lookup logic.
+
+**Recommended data sources:**
+
+- `RIPEstat` for prefix and ASN context when the address falls in RIPE space.
+- `RIPE Database REST API` for richer route and contact-style records when available.
+- `RDAP` as the broader long-term path so non-RIPE IPs can resolve through the correct regional registry as well.
+
+**Suggested first milestone:**
+
+- Add a `Lookup` button in `IP Address Inspector`.
+- Show `prefix`, `ASN`, `organization / holder`, `country`, `registry / source`, and useful `links` back to the upstream record.
+- Keep the current local-only inspection instant, and show the network lookup as a separate optional result card.
+
+**Suggested Worker contract:**
+
+- `GET /api/ip-lookup?ip=1.2.3.4`
+- Validate the IP in the Worker before any upstream call.
+- Return normalized JSON so the frontend does not depend on one provider's response format.
+- Include an error shape for rate limits, timeouts, and "no registry data found".
+
+**Do not start with raw WHOIS:**
+
+- A raw WHOIS client is possible later as an advanced fallback, but it should not be the first implementation.
+- HTTP-based registry lookups are the safer and more Cloudflare-friendly starting point.
+
+**Nice follow-up after first release:**
+
+- Add caching in the Worker for repeated lookups.
+- Add RIR badges such as `RIPE`, `ARIN`, `APNIC`, `LACNIC`, and `AFRINIC`.
+- Add a small "copy summary" action for support and networking workflows.
 
 ## Acceptance Checklist
 

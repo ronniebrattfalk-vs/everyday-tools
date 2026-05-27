@@ -8435,6 +8435,363 @@ input[type='range'] {
   color: var(--accent-strong);
 }
 
+/* Phase 28: Protocol debugging tools — shared two-column layout */
+.proto-tool {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.proto-input-panel {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.proto-textarea {
+  min-height: 380px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.proto-results-panel {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  min-width: 0;
+}
+
+.proto-empty {
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.proto-empty p {
+  margin: 0 0 6px;
+}
+
+.proto-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.proto-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.proto-badge--ok {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #22c55e;
+}
+
+.proto-badge--warn {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #f59e0b;
+}
+
+.proto-info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.proto-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  color: #ef4444;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.proto-ok-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #22c55e;
+  font-size: 0.84rem;
+  font-weight: 650;
+}
+
+.proto-field-list {
+  display: grid;
+  gap: 4px;
+}
+
+.proto-field-row {
+  display: grid;
+  grid-template-columns: 190px 1fr 1.4fr;
+  gap: 8px 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--surface);
+  align-items: start;
+  font-size: 0.83rem;
+}
+
+.proto-field-row--missing {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.proto-field-row--other {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.proto-field-name {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.proto-required-tag {
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(239, 68, 68, 0.14);
+  color: #ef4444;
+}
+
+.proto-field-value {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  font-size: 0.82rem;
+  color: var(--heading);
+  overflow-wrap: anywhere;
+}
+
+.proto-field-missing {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.proto-field-desc {
+  color: var(--muted);
+  font-size: 0.79rem;
+  line-height: 1.5;
+}
+
+/* OFTP2 Record Decoder extras */
+.oftp2-raw-panel {
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: grid;
+  gap: 6px;
+}
+
+.oftp2-raw-label {
+  font-size: 0.76rem;
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.oftp2-raw-value {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  font-size: 0.84rem;
+  color: var(--heading);
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+.oftp2-cmd-desc {
+  font-size: 0.84rem;
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.oftp2-field-table {
+  display: grid;
+  gap: 3px;
+}
+
+.oftp2-field-header {
+  display: grid;
+  grid-template-columns: 170px 1fr 1.4fr;
+  gap: 8px 12px;
+  padding: 4px 10px;
+  font-size: 0.71rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.oftp2-field-row {
+  display: grid;
+  grid-template-columns: 170px 1fr 1.4fr;
+  gap: 8px 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--surface);
+  align-items: start;
+}
+
+.oftp2-field-name {
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.oftp2-field-pos {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  font-size: 0.73rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.oftp2-field-val {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  font-size: 0.82rem;
+  color: var(--heading);
+  overflow-wrap: anywhere;
+}
+
+.oftp2-blank {
+  font-style: italic;
+  color: var(--muted);
+}
+
+.oftp2-field-desc {
+  font-size: 0.79rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* Phase 28: IP Address Network Lookup */
+.ip-lookup-card {
+  grid-column: 1 / -1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 20px;
+  display: grid;
+  gap: 14px;
+}
+
+.ip-lookup-error {
+  grid-column: 1 / -1;
+  padding: 10px 14px;
+  border-radius: 6px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  color: #ef4444;
+  font-size: 0.84rem;
+}
+
+.ip-lookup-title {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.ip-lookup-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.ip-lookup-row {
+  display: grid;
+  gap: 4px;
+}
+
+.ip-lookup-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.ip-lookup-value {
+  font-size: 0.88rem;
+  color: var(--heading);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.ip-lookup-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ip-lookup-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  color: var(--accent);
+  text-decoration: none;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  transition: border-color 0.1s, color 0.1s;
+}
+
+.ip-lookup-link:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+@keyframes ip-lookup-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.ip-lookup-spin {
+  animation: ip-lookup-spin 1s linear infinite;
+}
+
 @media print {
   body {
     background: #ffffff;

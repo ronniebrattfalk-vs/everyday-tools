@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Clipboard, RotateCcw } from 'lucide-react'
+import { Clipboard, ExternalLink, Loader2, RotateCcw, Search } from 'lucide-react'
 
 function parseIpv4(value) {
   const parts = value.trim().split('.')
@@ -38,7 +38,12 @@ function inspectAddress(value) {
 
   if (/^[0-9a-f:]+$/i.test(trimmed) && trimmed.includes(':')) {
     const lower = trimmed.toLowerCase()
-    const type = lower === '::1' ? 'Loopback' : lower.startsWith('fe80:') ? 'Link-local' : lower.startsWith('fc') || lower.startsWith('fd') ? 'Unique local' : lower.startsWith('ff') ? 'Multicast' : 'Global or reserved'
+    const type =
+      lower === '::1' ? 'Loopback'
+      : lower.startsWith('fe80:') ? 'Link-local'
+      : lower.startsWith('fc') || lower.startsWith('fd') ? 'Unique local'
+      : lower.startsWith('ff') ? 'Multicast'
+      : 'Global or reserved'
     return {
       version: 'IPv6',
       type,
@@ -62,18 +67,58 @@ function inspectAddress(value) {
 export function IPAddressInspector() {
   const [address, setAddress] = useState('192.168.1.25')
   const [message, setMessage] = useState('')
+  const [lookupState, setLookupState] = useState(null)
+  const [lookupResult, setLookupResult] = useState(null)
+  const [lookupError, setLookupError] = useState(null)
   const result = useMemo(() => inspectAddress(address), [address])
 
   async function copySummary() {
-    const summary = [`Address: ${result.normalized}`, `Version: ${result.version}`, `Type: ${result.type}`, `Numeric: ${result.numeric}`].join('\n')
-    await navigator.clipboard.writeText(summary)
+    const parts = [
+      `Address: ${result.normalized}`,
+      `Version: ${result.version}`,
+      `Type: ${result.type}`,
+      `Numeric: ${result.numeric}`,
+    ]
+    if (lookupResult) {
+      if (lookupResult.prefix) parts.push(`Prefix: ${lookupResult.prefix}`)
+      if (lookupResult.asn) parts.push(`ASN: ${lookupResult.asn}${lookupResult.asnName ? ` — ${lookupResult.asnName}` : ''}`)
+      if (lookupResult.organization) parts.push(`Organization: ${lookupResult.organization}`)
+      if (lookupResult.country) parts.push(`Country: ${lookupResult.country}`)
+      if (lookupResult.registry) parts.push(`Registry: ${lookupResult.registry}`)
+    }
+    await navigator.clipboard.writeText(parts.join('\n'))
     setMessage('IP summary copied')
   }
 
   function resetTool() {
     setAddress('192.168.1.25')
     setMessage('Reset IP inspector')
+    setLookupState(null)
+    setLookupResult(null)
+    setLookupError(null)
   }
+
+  async function doLookup() {
+    setLookupState('loading')
+    setLookupError(null)
+    setLookupResult(null)
+    try {
+      const res = await fetch(`/api/ip-lookup?ip=${encodeURIComponent(result.normalized)}`)
+      const data = await res.json()
+      if (!res.ok) {
+        setLookupError(data.error || 'Lookup failed')
+        setLookupState('error')
+        return
+      }
+      setLookupResult(data)
+      setLookupState('done')
+    } catch {
+      setLookupError('Network error — lookup unavailable')
+      setLookupState('error')
+    }
+  }
+
+  const canLookup = result.valid && (result.type === 'Public' || result.type === 'Global or reserved')
 
   return (
     <div className="tool-body network-tool">
@@ -94,10 +139,25 @@ export function IPAddressInspector() {
           <input value={address} onChange={(event) => setAddress(event.target.value)} />
         </label>
 
-        <button type="button" className="primary-button" onClick={copySummary} disabled={!result.valid}>
-          <Clipboard size={17} aria-hidden="true" />
-          Copy summary
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button type="button" className="primary-button" onClick={copySummary} disabled={!result.valid}>
+            <Clipboard size={17} aria-hidden="true" />
+            Copy summary
+          </button>
+          {canLookup && (
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={doLookup}
+              disabled={lookupState === 'loading'}
+            >
+              {lookupState === 'loading'
+                ? <Loader2 size={17} aria-hidden="true" className="ip-lookup-spin" />
+                : <Search size={17} aria-hidden="true" />}
+              {lookupState === 'loading' ? 'Looking up…' : 'Network lookup'}
+            </button>
+          )}
+        </div>
 
         <p className="helper-text">{message || result.notes}</p>
       </section>
@@ -120,6 +180,72 @@ export function IPAddressInspector() {
           <strong>{result.numeric}</strong>
         </article>
       </section>
+
+      {lookupState === 'error' && (
+        <div className="ip-lookup-error">{lookupError}</div>
+      )}
+
+      {lookupState === 'done' && lookupResult && (
+        <section className="ip-lookup-card">
+          <h4 className="ip-lookup-title">Network ownership</h4>
+          <div className="ip-lookup-grid">
+            {lookupResult.prefix && (
+              <div className="ip-lookup-row">
+                <span className="ip-lookup-label">Prefix</span>
+                <span className="ip-lookup-value">{lookupResult.prefix}</span>
+              </div>
+            )}
+            {lookupResult.asn && (
+              <div className="ip-lookup-row">
+                <span className="ip-lookup-label">ASN</span>
+                <span className="ip-lookup-value">
+                  {lookupResult.asn}{lookupResult.asnName ? ` — ${lookupResult.asnName}` : ''}
+                </span>
+              </div>
+            )}
+            {lookupResult.organization && (
+              <div className="ip-lookup-row">
+                <span className="ip-lookup-label">Organization</span>
+                <span className="ip-lookup-value">{lookupResult.organization}</span>
+              </div>
+            )}
+            {lookupResult.country && (
+              <div className="ip-lookup-row">
+                <span className="ip-lookup-label">Country</span>
+                <span className="ip-lookup-value">{lookupResult.country}</span>
+              </div>
+            )}
+            {lookupResult.networkName && (
+              <div className="ip-lookup-row">
+                <span className="ip-lookup-label">Network name</span>
+                <span className="ip-lookup-value">{lookupResult.networkName}</span>
+              </div>
+            )}
+            {lookupResult.registry && (
+              <div className="ip-lookup-row">
+                <span className="ip-lookup-label">Registry</span>
+                <span className="ip-lookup-value">{lookupResult.registry}</span>
+              </div>
+            )}
+          </div>
+          {lookupResult.links?.length > 0 && (
+            <div className="ip-lookup-links">
+              {lookupResult.links.map((link, i) => (
+                <a
+                  key={i}
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ip-lookup-link"
+                >
+                  <ExternalLink size={11} aria-hidden="true" />
+                  {link.title}
+                </a>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   )
 }

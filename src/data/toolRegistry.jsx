@@ -2,6 +2,7 @@ import { lazy } from 'react'
 import {
   ArrowLeftRight,
   BadgePercent,
+  Cable,
   Clock,
   Database,
   Dices,
@@ -10,6 +11,7 @@ import {
   Maximize2,
   Pi,
   Receipt,
+  Send,
   Sigma,
   AtSign,
   Banknote,
@@ -161,6 +163,8 @@ const iconMap = {
   quoteGen: Handshake,
   proofreading: SpellCheck,
   letterBuilder: ScrollText,
+  as2: Send,
+  oftp2: Cable,
 }
 
 function lazyTool(fileName, exportName) {
