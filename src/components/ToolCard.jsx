@@ -7,7 +7,7 @@ export function ToolCard({ tool, icon: Icon, isActive, isFavorite, onSelect, onT
       <button type="button" className="tool-card-main" onClick={onSelect} aria-pressed={isActive}>
         <span
           className="tool-card-icon"
-          style={{ background: `${color}1a`, color }}
+          style={{ background: `${color}33`, color }}
         >
           {Icon ? <Icon size={18} aria-hidden="true" /> : null}
           {tool.updated && <span className="tool-card-updated-dot" aria-label="Recently updated" />}

@@ -193,8 +193,25 @@ function App() {
             })}
           </nav>
 
-          <div className="sb-section">
-            <span>Tools</span>
+          {(favoritesMessage || settingsMessage) && (
+            <div className="sb-notes">
+              {favoritesMessage && <p>{favoritesMessage}</p>}
+              {settingsMessage && <p>{settingsMessage}</p>}
+            </div>
+          )}
+
+          <div className="sb-footer">
+            <button type="button" className="sb-item" onClick={() => setShowWhatsNew(true)}>
+              <span className="sb-item-icon"><Newspaper size={13} aria-hidden="true" /></span>
+              <span className="sb-label">What's New</span>
+            </button>
+          </div>
+        </aside>
+
+        {/* ── TOOL LIST PANEL ── */}
+        <div className="tool-list-panel">
+          <div className="tlp-header">
+            <span className="tlp-title">Tools</span>
             <div className="sb-sort">
               <button
                 type="button"
@@ -208,8 +225,7 @@ function App() {
               >A–Z</button>
             </div>
           </div>
-
-          <div className="sb-list" aria-label="Tool list">
+          <div className="tlp-list" aria-label="Tool list">
             {visibleTools.map((tool) => (
               <ToolCard
                 key={tool.slug}
@@ -228,29 +244,7 @@ function App() {
               </div>
             )}
           </div>
-
-          {(favoritesMessage || settingsMessage) && (
-            <div className="sb-notes">
-              {favoritesMessage && <p>{favoritesMessage}</p>}
-              {settingsMessage && <p>{settingsMessage}</p>}
-            </div>
-          )}
-
-          <div className="sb-footer">
-            <button type="button" className="sb-item" onClick={() => setShowWhatsNew(true)}>
-              <span className="sb-item-icon"><Newspaper size={13} aria-hidden="true" /></span>
-              <span className="sb-label">What's New</span>
-            </button>
-            <button type="button" className="sb-item" onClick={toggleTheme} aria-label="Toggle theme">
-              <span className="sb-item-icon">
-                {theme === 'dark'
-                  ? <Sun size={13} aria-hidden="true" />
-                  : <Moon size={13} aria-hidden="true" />}
-              </span>
-              <span className="sb-label">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
-            </button>
-          </div>
-        </aside>
+        </div>
 
         {/* ── MAIN ── */}
         <div className="app-main">
@@ -267,6 +261,12 @@ function App() {
                 <span>{liveCount} live</span>
                 <span className="version-badge">v{VERSION}</span>
               </div>
+              <button type="button" className="topbar-theme-btn" onClick={toggleTheme} aria-label="Toggle theme">
+                {theme === 'dark'
+                  ? <Sun size={14} aria-hidden="true" />
+                  : <Moon size={14} aria-hidden="true" />}
+                <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+              </button>
               <span className="privacy-pill">
                 <ArrowLeftRight size={13} aria-hidden="true" />
                 Local in browser
