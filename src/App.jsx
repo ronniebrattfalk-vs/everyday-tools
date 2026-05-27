@@ -2,7 +2,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react'
 import {
   ArrowLeftRight, Briefcase, Code2, FileStack, LayoutGrid,
   Moon, Newspaper, Palette, PenLine, Search,
-  ShieldCheck, Sparkles, Star, Sun, Zap,
+  ShieldCheck, Sparkles, Star, Sun, Wifi, Zap,
 } from 'lucide-react'
 import { ToolCard } from './components/ToolCard.jsx'
 import { WhatsNewModal } from './components/WhatsNewModal.jsx'
@@ -20,6 +20,7 @@ const CATEGORY_CONFIG = {
   All:       { icon: LayoutGrid,  color: '#7c6ef4' },
   Favorites: { icon: Star,        color: '#f59e0b' },
   Everyday:  { icon: Zap,         color: '#22d3ee' },
+  Network:   { icon: Wifi,        color: '#0ea5e9' },
   Security:  { icon: ShieldCheck, color: '#a78bfa' },
   Developer: { icon: Code2,       color: '#60a5fa' },
   Writing:   { icon: PenLine,     color: '#4ade80' },

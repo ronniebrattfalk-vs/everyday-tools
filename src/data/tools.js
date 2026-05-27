@@ -257,7 +257,7 @@ export const tools = [
   {
     slug: 'http-status',
     name: 'HTTP Status Code Lookup',
-    category: 'Developer',
+    category: 'Network',
     status: 'Live',
     icon: 'status',
     component: { file: 'HTTPStatusLookup.jsx', exportName: 'HTTPStatusLookup' },
@@ -312,7 +312,7 @@ export const tools = [
   {
     slug: 'ip-inspector',
     name: 'IP Address Inspector',
-    category: 'Security',
+    category: 'Network',
     status: 'Live',
     icon: 'ip',
     component: { file: 'IPAddressInspector.jsx', exportName: 'IPAddressInspector' },
@@ -323,7 +323,7 @@ export const tools = [
   {
     slug: 'cidr-calculator',
     name: 'CIDR Calculator',
-    category: 'Security',
+    category: 'Network',
     status: 'Live',
     icon: 'cidr',
     component: { file: 'CIDRCalculator.jsx', exportName: 'CIDRCalculator' },
@@ -334,7 +334,7 @@ export const tools = [
   {
     slug: 'security-headers',
     name: 'Security Headers Checklist',
-    category: 'Security',
+    category: 'Network',
     status: 'Live',
     icon: 'headers',
     component: { file: 'SecurityHeadersChecklist.jsx', exportName: 'SecurityHeadersChecklist' },
@@ -345,7 +345,7 @@ export const tools = [
   {
     slug: 'dns-helper',
     name: 'DNS Lookup Helper',
-    category: 'Security',
+    category: 'Network',
     status: 'Live',
     icon: 'dns',
     component: { file: 'DNSLookupHelper.jsx', exportName: 'DNSLookupHelper' },
@@ -367,7 +367,7 @@ export const tools = [
   {
     slug: 'port-reference',
     name: 'Port Reference Lookup',
-    category: 'Security',
+    category: 'Network',
     status: 'Live',
     icon: 'ports',
     component: { file: 'PortReferenceLookup.jsx', exportName: 'PortReferenceLookup' },
@@ -389,7 +389,7 @@ export const tools = [
   {
     slug: 'http-header-analyzer',
     name: 'HTTP Header Analyzer',
-    category: 'Security',
+    category: 'Network',
     status: 'Live',
     icon: 'headerAnalyzer',
     component: { file: 'HTTPHeaderAnalyzer.jsx', exportName: 'HTTPHeaderAnalyzer' },
