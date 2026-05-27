@@ -297,63 +297,22 @@ Full audit of all tools in the app surfaced several targeted improvements that r
 7. **Future Expense Tracker / Budget Planner** → SVG mini-charts (sparklines and category bars) with no new dependency. Deferred to a dedicated UX pass.
 8. **Future Settings Backup / Restore** → Export all tool localStorage keys as a single JSON archive, import to restore. No new dependency. Deferred to a settings management phase.
 
-### Phase 27: Cloudflare Tunnel + Communication API Bridge
+### Phase 23: Drag-And-Drop File Import
 
-Exposes the local Python Communication service through a Cloudflare Tunnel so the browser tools on everyday-tools can trigger live protocol tests from any machine — including a work PC — without any port forwarding or static IP.
+Added drag-and-drop support to every tool that accepts a file import. Files can now be dropped onto the upload area instead of using the file picker button.
 
-**How it works:**
+1. **Completed upload-box tools** → Hash Generator, Image Cropper, Document Metadata Cleaner, PDF Page Reorderer, Favicon Generator, Base64 Encoder, Image Resizer. Each tool's `upload-box` label now accepts drops and highlights with the accent blue on hover. Hint text updated to "Choose or drop a file".
+2. **Completed toolbar-import tools** → JSON Formatter (drop `.json` onto tool body), CSV Cleaner (drop `.csv` onto tool body), HTTP Request Builder (drop `.txt`/`.sh` onto the Import curl panel), JSON ↔ CSV Converter (drop `.json`/`.csv` onto the input panel), Invoice Generator (drop image onto the Branding & Payment section to set the logo). Container-level drop zones show a dashed accent outline while dragging over them.
 
-The Communication service runs on the home PC as normal. `cloudflared` (Cloudflare's tunnel agent) is also running on the home PC and makes a persistent outbound HTTPS connection to Cloudflare. When the browser at work calls the tunnel URL, Cloudflare routes the request through that tunnel to the home PC, which runs the actual test and returns the result.
+### Phase 24: Dark Pro Sidebar Redesign
 
-```text
-Work PC browser → everyday-tools on Cloudflare
-  → browser calls https://comm-api.yourdomain.com/api/test/as2
-  → Cloudflare Tunnel routes request to home PC
-  → Communication service runs the AS2/OFTP2/FTP/SFTP test
-  → result returned to browser
-```
+Full UX overhaul. The app now ships with a sticky dark sidebar, breadcrumb topbar, category-colored tool cards, and a persistent light/dark mode toggle.
 
-No port forwarding. No static IP. No router config. Works for AS2, OFTP2, FTP, and SFTP because the tunnel connects to a real process with real socket capabilities — not a Worker with edge runtime limits.
-
-**Setup steps:**
-
-1. Install `cloudflared` on the home PC: `winget install Cloudflare.cloudflared`
-2. Authenticate: `cloudflared tunnel login`
-3. Create a named tunnel: `cloudflared tunnel create comm-api`
-4. Add a DNS route on the Cloudflare dashboard pointing `comm-api.yourdomain.com` to the tunnel
-5. Start the tunnel pointing at the Communication service port: `cloudflared tunnel run --url http://localhost:8787 comm-api`
-6. Optionally: add Cloudflare Access in front of the tunnel so only your account can reach it
-
-**Changes needed in Communication:**
-
-- Add `Access-Control-Allow-Origin` header to `admin_api.py` for the tunnel hostname (or use a token check instead of origin-based CORS)
-- Add 4 test endpoints (see Phase 26 below)
-- Add an optional `--admin-token` requirement on the test endpoints so the tunnel is not open without auth
-
-**Changes needed in everyday-tools:**
-
-- The "API URL" field in each protocol test tool defaults to `http://localhost:8787` for home use and can be changed to the tunnel URL (`https://comm-api.yourdomain.com`) when accessing from work
-- The API URL is saved to `localStorage` so it only needs to be set once per machine
-
-For Cloudflare Worker-specific tools (no home PC required):
-
-1. **HTTPS Endpoint Health Checker** → Live reachability and certificate check for any HTTPS URL via a Worker.
-2. **HTTP Header Fetcher** → Fetch real response headers from a URL via Worker proxy and feed them into the existing HTTP Header Analyzer.
-
----
-
-### Phase 26: Communication API Test Endpoints
-
-Adds the four protocol test endpoints to the Communication service that the browser tools in Phase 27 call. This phase is pure Python work on the Communication project — no browser changes.
-
-**New endpoints in `Communication/oftp2_app/admin_api.py`:**
-
-- `POST /api/test/ftp` → Accept `{ host, port, user, password, tls_mode }`, attempt FTP connection using the existing `FtpProtocolAdapter`, return `{ success, banner, listing, error, elapsed_ms }`.
-- `POST /api/test/sftp` → Accept `{ host, port, user, password, host_key_fingerprint }`, attempt SFTP connection using `asyncssh`, return `{ success, host_key_sha256, listing, error, elapsed_ms }`.
-- `POST /api/test/as2` → Accept `{ as2_from, as2_to, partner_url, sign_cert_pem, encrypt_cert_pem }`, send a minimal AS2 test message using the existing AS2 adapter, return `{ success, mdn_status, http_status, headers, error, elapsed_ms }`.
-- `POST /api/test/oftp2` → Accept `{ sfid, host, port, cert_pem, key_pem }`, run an OFTP2 SSRM handshake using the existing OFTP2 adapter, return `{ success, peer_sfid, session_id, error, elapsed_ms }`.
-
-All endpoints require the existing `--admin-token` if one is configured. All return JSON. No new Python dependencies needed — the existing adapters cover all four protocols.
+1. **Completed App Shell** → Replaced the full-page centered layout with a sidebar + main-area split. The sidebar is sticky and scrolls independently from the content panel.
+2. **Completed Sidebar Navigation** → Category items now show a colored icon, a tool count badge, and an active accent indicator. All tools, Favorites, and category filters live here.
+3. **Completed Tool Cards** → Each card in the sidebar list now renders a category-colored icon box (e.g. cyan for Everyday, purple for Security) alongside the tool name.
+4. **Completed Topbar** → Slim 52 px breadcrumb bar (Tools › Category › Tool) replaces the large hero heading. Stats pill and "Local in browser" badge remain.
+5. **Completed Theme Toggle** → Sun/moon button in the sidebar footer switches between dark (default) and light mode. Choice is persisted to `localStorage`.
 
 ---
 
@@ -372,22 +331,62 @@ Dependencies: None for tools 1–5 (pure string parsing). Tool 6 uses the browse
 
 ---
 
-### Phase 24: Dark Pro Sidebar Redesign
+### Phase 26: Communication API Test Endpoints
 
-Full UX overhaul. The app now ships with a sticky dark sidebar, breadcrumb topbar, category-colored tool cards, and a persistent light/dark mode toggle.
+Adds the four protocol test endpoints to the Communication service that the browser tools in Phase 27 call. This phase is pure Python work on the Communication project — no browser changes.
 
-1. **Completed App Shell** → Replaced the full-page centered layout with a sidebar + main-area split. The sidebar is sticky and scrolls independently from the content panel.
-2. **Completed Sidebar Navigation** → Category items now show a colored icon, a tool count badge, and an active accent indicator. All tools, Favorites, and category filters live here.
-3. **Completed Tool Cards** → Each card in the sidebar list now renders a category-colored icon box (e.g. cyan for Everyday, purple for Security) alongside the tool name.
-4. **Completed Topbar** → Slim 52 px breadcrumb bar (Tools › Category › Tool) replaces the large hero heading. Stats pill and "Local in browser" badge remain.
-5. **Completed Theme Toggle** → Sun/moon button in the sidebar footer switches between dark (default) and light mode. Choice is persisted to `localStorage`.
+**New endpoints in `Communication/oftp2_app/admin_api.py`:**
 
-### Phase 23: Drag-And-Drop File Import
+- `POST /api/test/ftp` → Accept `{ host, port, user, password, tls_mode }`, attempt FTP connection using the existing `FtpProtocolAdapter`, return `{ success, banner, listing, error, elapsed_ms }`.
+- `POST /api/test/sftp` → Accept `{ host, port, user, password, host_key_fingerprint }`, attempt SFTP connection using `asyncssh`, return `{ success, host_key_sha256, listing, error, elapsed_ms }`.
+- `POST /api/test/as2` → Accept `{ as2_from, as2_to, partner_url, sign_cert_pem, encrypt_cert_pem }`, send a minimal AS2 test message using the existing AS2 adapter, return `{ success, mdn_status, http_status, headers, error, elapsed_ms }`.
+- `POST /api/test/oftp2` → Accept `{ sfid, host, port, cert_pem, key_pem }`, run an OFTP2 SSRM handshake using the existing OFTP2 adapter, return `{ success, peer_sfid, session_id, error, elapsed_ms }`.
 
-Added drag-and-drop support to every tool that accepts a file import. Files can now be dropped onto the upload area instead of using the file picker button.
+All endpoints require the existing `--admin-token` if one is configured. All return JSON. No new Python dependencies needed — the existing adapters cover all four protocols.
 
-1. **Completed upload-box tools** → Hash Generator, Image Cropper, Document Metadata Cleaner, PDF Page Reorderer, Favicon Generator, Base64 Encoder, Image Resizer. Each tool's `upload-box` label now accepts drops and highlights with the accent blue on hover. Hint text updated to "Choose or drop a file".
-2. **Completed toolbar-import tools** → JSON Formatter (drop `.json` onto tool body), CSV Cleaner (drop `.csv` onto tool body), HTTP Request Builder (drop `.txt`/`.sh` onto the Import curl panel), JSON ↔ CSV Converter (drop `.json`/`.csv` onto the input panel), Invoice Generator (drop image onto the Branding & Payment section to set the logo). Container-level drop zones show a dashed accent outline while dragging over them.
+---
+
+### Phase 27: VS Code Dev Tunnels + Communication API Bridge
+
+The tunnel infrastructure is already in place using VS Code Dev Tunnels. The browser tools on everyday-tools can call the home PC's Communication service directly from any machine — including a work PC — with no port forwarding, no static IP, and no router config.
+
+**Current tunnel setup (home PC, active):**
+
+| Service | Local port | Public Dev Tunnel URL |
+|---|---|---|
+| OFTP2 server | 6619 | `https://z53gn2x9-6619.euw.devtunnels.ms/` |
+| AS2 server | 8443 | `https://z53gn2x9-8443.euw.devtunnels.ms/` |
+| Communication API | 10443 | `https://z53gn2x9-10443.euw.devtunnels.ms/` |
+| Dashboard (local only) | 8787 | — |
+
+The Communication admin API is running on port 10443 and is the entry point for all browser tool calls. OFTP2 and AS2 tunnels expose the live protocol servers directly for partner-to-partner testing.
+
+**How the browser tools use this:**
+
+```text
+Work PC browser → everyday-tools on Cloudflare
+  → browser calls https://z53gn2x9-10443.euw.devtunnels.ms/api/test/as2
+  → VS Code Dev Tunnel routes request to localhost:10443 on home PC
+  → Communication service runs the real AS2/OFTP2/FTP/SFTP test
+  → result returned to browser
+```
+
+**Note on tunnel URL stability:** VS Code Dev Tunnel URLs are session-scoped — they change when VS Code restarts. For a stable permanent URL, replace Dev Tunnels with a named Cloudflare Tunnel: `winget install Cloudflare.cloudflared` → `cloudflared tunnel create comm-api` → map `comm-api.yourdomain.com` to `localhost:10443`. Everything else stays the same.
+
+**Remaining work (Communication side — Phase 26):**
+
+- Add `Access-Control-Allow-Origin` for the tunnel hostname to `admin_api.py`
+- Add the 4 test endpoints on port 10443 (see Phase 26)
+
+**Remaining work (everyday-tools side):**
+
+- The "API URL" field in each test tool defaults to `http://localhost:10443` for home use; set to the Dev Tunnel URL when at work
+- The URL persists to `localStorage` — set once per machine
+
+For Cloudflare Worker-specific tools (no home PC required):
+
+1. **HTTPS Endpoint Health Checker** → Live reachability and certificate check for any HTTPS URL via a Worker.
+2. **HTTP Header Fetcher** → Fetch real response headers from a URL via Worker proxy and feed them into the existing HTTP Header Analyzer.
 
 ## Acceptance Checklist
 
