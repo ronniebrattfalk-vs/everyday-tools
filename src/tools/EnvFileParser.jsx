@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { parse } from 'dotenv'
 import { Clipboard, Download, RotateCcw } from 'lucide-react'
 
 const sample = `# Application
@@ -14,34 +15,34 @@ DATABASE_POOL=10
 STRIPE_SECRET_KEY="sk_test_abc123"
 OPENAI_API_KEY='sk-abc...'
 
+# Multiline values
+PRIVATE_KEY="-----BEGIN KEY-----
+line-1
+line-2
+-----END KEY-----"
+
 # Feature flags
 ENABLE_DARK_MODE=true
 DEBUG=false`
 
 function parseEnv(text) {
-  const rows = []
-  for (const raw of text.split('\n')) {
-    const line = raw.trim()
-    if (!line || line.startsWith('#')) continue
-    const eq = line.indexOf('=')
-    if (eq < 1) continue
-    const key = line.slice(0, eq).trim()
-    let value = line.slice(eq + 1).trim()
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1)
-    }
-    if (key) rows.push({ key, value })
+  try {
+    const parsed = parse(text)
+    const rows = Object.entries(parsed).map(([key, value]) => ({
+      key,
+      value,
+      masked: /key|secret|token|password/i.test(key),
+    }))
+    return { rows, error: '' }
+  } catch (error) {
+    return { rows: [], error: error.message || 'Could not parse .env content' }
   }
-  return rows
 }
 
 function toEnvFormat(rows) {
   return rows
     .map(({ key, value }) => {
-      const needsQuotes = /[\s"'#]/.test(value)
+      const needsQuotes = /[\s"'#\n]/.test(value)
       return `${key}=${needsQuotes ? `"${value.replace(/"/g, '\\"')}"` : value}`
     })
     .join('\n')
@@ -55,10 +56,16 @@ function toJSON(rows) {
 function toShell(rows) {
   return rows
     .map(({ key, value }) => {
-      const needsQuotes = /[\s"'$`\\]/.test(value)
+      const needsQuotes = /[\s"'$`\\\n]/.test(value)
       return `export ${key}=${needsQuotes ? `"${value.replace(/"/g, '\\"')}"` : value}`
     })
     .join('\n')
+}
+
+function maskValue(value) {
+  if (!value) return ''
+  if (value.length <= 6) return '••••••'
+  return `${value.slice(0, 3)}••••${value.slice(-2)}`
 }
 
 const FORMATS = [
@@ -70,16 +77,24 @@ const FORMATS = [
 export function EnvFileParser() {
   const [input, setInput] = useState(sample)
   const [format, setFormat] = useState('env')
+  const [maskSecrets, setMaskSecrets] = useState(true)
   const [message, setMessage] = useState('')
 
-  const rows = useMemo(() => parseEnv(input), [input])
+  const parsed = useMemo(() => parseEnv(input), [input])
+
+  const displayRows = useMemo(() => {
+    return parsed.rows.map((row) => ({
+      ...row,
+      displayValue: maskSecrets && row.masked ? maskValue(row.value) : row.value,
+    }))
+  }, [maskSecrets, parsed.rows])
 
   const exported = useMemo(() => {
-    if (!rows.length) return ''
-    if (format === 'json') return toJSON(rows)
-    if (format === 'shell') return toShell(rows)
-    return toEnvFormat(rows)
-  }, [rows, format])
+    if (!parsed.rows.length) return ''
+    if (format === 'json') return toJSON(parsed.rows)
+    if (format === 'shell') return toShell(parsed.rows)
+    return toEnvFormat(parsed.rows)
+  }, [parsed.rows, format])
 
   async function copy() {
     if (!exported) return
@@ -90,15 +105,22 @@ export function EnvFileParser() {
 
   function download() {
     if (!exported) return
-    const fmt = FORMATS.find((f) => f.key === format)
-    const blob = new Blob([exported], { type: `${fmt.mime};charset=utf-8` })
+    const nextFormat = FORMATS.find((item) => item.key === format)
+    const blob = new Blob([exported], { type: `${nextFormat.mime};charset=utf-8` })
     const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `env-export${fmt.ext}`
-    a.click()
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `env-export${nextFormat.ext}`
+    anchor.click()
     URL.revokeObjectURL(url)
-    setMessage(`Downloaded as ${fmt.ext}`)
+    setMessage(`Downloaded as ${nextFormat.ext}`)
+  }
+
+  function reset() {
+    setInput(sample)
+    setFormat('env')
+    setMaskSecrets(true)
+    setMessage('Reset to sample .env')
   }
 
   return (
@@ -106,46 +128,49 @@ export function EnvFileParser() {
       <div className="env-input-panel">
         <div className="section-title-row">
           <h3>Paste .env content</h3>
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => {
-              setInput('')
-              setMessage('Cleared')
-            }}
-          >
+          <button type="button" className="secondary-button" onClick={reset}>
             <RotateCcw size={16} aria-hidden="true" />
-            Clear
+            Reset
           </button>
         </div>
 
         <textarea
           className="env-textarea"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(event) => setInput(event.target.value)}
           spellCheck={false}
           placeholder={'# .env file\nKEY=value\n"QUOTED"="value with spaces"'}
         />
 
+        <div className="env-toggle-row">
+          <label className="check-row">
+            <input type="checkbox" checked={maskSecrets} onChange={(event) => setMaskSecrets(event.target.checked)} />
+            Mask likely secrets in preview
+          </label>
+        </div>
+
         <p className="helper-text">
-          {rows.length
-            ? `${rows.length} variable${rows.length === 1 ? '' : 's'} parsed. Comments and blank lines are ignored.`
-            : 'Paste a .env file to parse it.'}
+          {parsed.error
+            ? `Parse warning: ${parsed.error}`
+            : parsed.rows.length
+              ? `${parsed.rows.length} variable${parsed.rows.length === 1 ? '' : 's'} parsed with dotenv-compatible rules.`
+              : 'Paste a .env file to parse it.'}
         </p>
       </div>
 
       <div className="env-output-panel">
-        {rows.length > 0 ? (
+        {parsed.rows.length > 0 ? (
           <>
             <div className="section-title-row">
               <h3>Variables</h3>
+              <span className="json-stat">{displayRows.filter((row) => row.masked).length} likely secrets</span>
             </div>
 
             <div className="env-var-list">
-              {rows.map(({ key, value }, i) => (
-                <article key={`${key}-${i}`} className="env-var-row">
+              {displayRows.map(({ key, displayValue, masked }, index) => (
+                <article key={`${key}-${index}`} className={`env-var-row ${masked ? 'env-var-row-masked' : ''}`}>
                   <code className="env-key">{key}</code>
-                  <code className="env-value">{value || <em>empty</em>}</code>
+                  <code className="env-value">{displayValue || <em>empty</em>}</code>
                 </article>
               ))}
             </div>
@@ -153,20 +178,10 @@ export function EnvFileParser() {
             <div className="section-title-row">
               <h3>Export</h3>
               <div className="button-row" style={{ marginTop: 0 }}>
-                <button
-                  type="button"
-                  className="icon-button"
-                  onClick={copy}
-                  aria-label="Copy export"
-                >
+                <button type="button" className="icon-button" onClick={copy} aria-label="Copy export">
                   <Clipboard size={16} aria-hidden="true" />
                 </button>
-                <button
-                  type="button"
-                  className="icon-button"
-                  onClick={download}
-                  aria-label="Download export"
-                >
+                <button type="button" className="icon-button" onClick={download} aria-label="Download export">
                   <Download size={16} aria-hidden="true" />
                 </button>
               </div>
@@ -174,26 +189,15 @@ export function EnvFileParser() {
 
             <div className="category-tabs compact" aria-label="Export format">
               {FORMATS.map(({ key, label }) => (
-                <button
-                  key={key}
-                  type="button"
-                  className={format === key ? 'is-active' : ''}
-                  onClick={() => setFormat(key)}
-                >
+                <button key={key} type="button" className={format === key ? 'is-active' : ''} onClick={() => setFormat(key)}>
                   {label}
                 </button>
               ))}
             </div>
 
-            <textarea
-              className="env-textarea output"
-              value={exported}
-              readOnly
-              spellCheck={false}
-              aria-label="Export output"
-            />
+            <textarea className="env-textarea output" value={exported} readOnly spellCheck={false} aria-label="Export output" />
 
-            <p className="helper-text">{message}</p>
+            <p className="helper-text">{message || 'Use masking for safe review, then export the unmodified parsed values.'}</p>
           </>
         ) : (
           <div className="empty-state">

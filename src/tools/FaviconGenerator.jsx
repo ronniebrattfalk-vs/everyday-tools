@@ -29,6 +29,7 @@ export function FaviconGenerator() {
   const [sourceUrl, setSourceUrl] = useState('')
   const [background, setBackground] = useState('#ffffff')
   const [message, setMessage] = useState('')
+  const [isDragging, setIsDragging] = useState(false)
 
   async function loadImage(file) {
     if (!file) return
@@ -82,9 +83,14 @@ export function FaviconGenerator() {
           </button>
         </div>
 
-        <label className="upload-box">
+        <label
+          className={`upload-box ${isDragging ? 'is-dragging' : ''}`}
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(e) => { e.preventDefault(); setIsDragging(false); loadImage(e.dataTransfer.files?.[0]) }}
+        >
           <ImagePlus size={30} aria-hidden="true" />
-          <span>{sourceName || 'Choose source image'}</span>
+          <span>{sourceName || 'Choose or drop source image'}</span>
           <small>PNG, JPG, WebP, or SVG image.</small>
           <input type="file" accept="image/*" onChange={(event) => loadImage(event.target.files?.[0])} />
         </label>

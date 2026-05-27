@@ -11,6 +11,18 @@ const initialProfile = {
   company: 'the company',
 }
 
+const weakVerbs = ['helped', 'worked', 'responsible for', 'assisted', 'supported', 'handled', 'did']
+
+const STRONG_VERB_MAP = {
+  'helped':           ['drove', 'contributed to', 'advanced'],
+  'worked':           ['delivered', 'executed', 'led'],
+  'responsible for':  ['owned', 'managed', 'oversaw'],
+  'assisted':         ['enabled', 'facilitated', 'accelerated'],
+  'supported':        ['strengthened', 'enabled', 'advanced'],
+  'handled':          ['managed', 'directed', 'executed'],
+  'did':              ['achieved', 'delivered', 'completed'],
+}
+
 function sentenceList(value) {
   return value
     .split(',')
@@ -23,6 +35,47 @@ function joinHuman(items) {
   if (items.length === 1) return items[0]
   if (items.length === 2) return `${items[0]} and ${items[1]}`
   return `${items.slice(0, -1).join(', ')}, and ${items.at(-1)}`
+}
+
+function detectPassive(sentence) {
+  return /\b(?:was|were|is|are|been|be|being)\s+\w+(?:ed|en)\b/i.test(sentence)
+}
+
+function suggestRewrite(achievement, foundWeakVerbs, isPassive, hasMetric) {
+  if (!foundWeakVerbs.length && !isPassive && hasMetric) return null
+
+  let text = achievement
+
+  if (foundWeakVerbs.length) {
+    const verb = foundWeakVerbs[0]
+    const alternatives = STRONG_VERB_MAP[verb]
+    if (alternatives) {
+      text = text.replace(new RegExp(`\\b${verb}\\b`, 'i'), alternatives[0])
+    }
+  }
+
+  const metricHint = !hasMetric ? ' (add a number, e.g. "15%", "3 clients", "$10k")' : ''
+
+  return `${text}${metricHint}`
+}
+
+function analyzeAchievements(achievements) {
+  return achievements.map((achievement) => {
+    const lower = achievement.toLowerCase()
+    const words = achievement.match(/\b[\w%-]+\b/g) ?? []
+    const foundWeakVerbs = weakVerbs.filter((verb) => lower.includes(verb))
+    const isPassive = detectPassive(achievement)
+    const hasMetric = /\b\d+(?:[%.,]\d+)?\b/.test(achievement)
+    const tooLong = words.length > 18
+    return {
+      text: achievement,
+      weakVerbs: foundWeakVerbs,
+      passive: isPassive,
+      hasMetric,
+      tooLong,
+      suggestion: suggestRewrite(achievement, foundWeakVerbs, isPassive, hasMetric),
+    }
+  })
 }
 
 function buildOutputs(profile) {
@@ -60,6 +113,14 @@ export function ResumeHelper() {
   const [message, setMessage] = useState('')
 
   const outputs = useMemo(() => buildOutputs(profile), [profile])
+  const achievementAnalysis = useMemo(() => analyzeAchievements(sentenceList(profile.achievements)), [profile.achievements])
+  const analysisSummary = useMemo(() => {
+    const weak = achievementAnalysis.filter((item) => item.weakVerbs.length > 0).length
+    const passive = achievementAnalysis.filter((item) => item.passive).length
+    const missingMetrics = achievementAnalysis.filter((item) => !item.hasMetric).length
+    const longBullets = achievementAnalysis.filter((item) => item.tooLong).length
+    return { weak, passive, missingMetrics, longBullets }
+  }, [achievementAnalysis])
 
   function updateField(field, value) {
     setProfile((current) => ({ ...current, [field]: value }))
@@ -154,6 +215,64 @@ export function ResumeHelper() {
             </button>
           ))}
         </div>
+
+        <div className="writing-results resume-analysis-grid">
+          <article>
+            <span>Weak verbs</span>
+            <strong>{analysisSummary.weak}</strong>
+            <p>Replace vague verbs like "helped" with stronger actions.</p>
+          </article>
+          <article>
+            <span>Passive</span>
+            <strong>{analysisSummary.passive}</strong>
+            <p>Active voice usually reads stronger in resume bullets.</p>
+          </article>
+          <article>
+            <span>Missing metrics</span>
+            <strong>{analysisSummary.missingMetrics}</strong>
+            <p>Add numbers, percentages, time saved, or volume when possible.</p>
+          </article>
+          <article>
+            <span>Long bullets</span>
+            <strong>{analysisSummary.longBullets}</strong>
+            <p>Keep bullets tight so impact is easier to scan quickly.</p>
+          </article>
+        </div>
+
+        {achievementAnalysis.length > 0 && (
+          <div className="resume-bullet-review">
+            <p className="field-label" style={{ marginBottom: 8 }}>Bullet review</p>
+            {achievementAnalysis.map((item, i) => {
+              const issues = []
+              if (item.weakVerbs.length) issues.push(`weak verb: ${item.weakVerbs[0]}`)
+              if (item.passive) issues.push('passive voice')
+              if (!item.hasMetric) issues.push('no metric')
+              if (item.tooLong) issues.push('too long')
+              const clean = issues.length === 0
+              return (
+                <div key={i} className={`resume-bullet-card ${clean ? 'resume-bullet-card--ok' : ''}`}>
+                  <div className="resume-bullet-original">
+                    <span className="resume-bullet-label">{clean ? '✓ Strong' : 'Original'}</span>
+                    <span className="resume-bullet-text">{item.text}</span>
+                    {!clean && (
+                      <div className="resume-bullet-tags">
+                        {issues.map((issue, j) => (
+                          <span key={j} className="resume-bullet-tag">{issue}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {item.suggestion && (
+                    <div className="resume-bullet-suggestion">
+                      <span className="resume-bullet-label resume-bullet-label--suggest">Suggested</span>
+                      <span className="resume-bullet-text">{item.suggestion}</span>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
 
         <textarea className="resume-output" value={outputs[activeOutput]} readOnly />
 

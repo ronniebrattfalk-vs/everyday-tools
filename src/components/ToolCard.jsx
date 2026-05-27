@@ -4,7 +4,10 @@ export function ToolCard({ tool, icon: Icon, isActive, isFavorite, onSelect, onT
   return (
     <article className={`tool-card ${isActive ? 'is-active' : ''}`}>
       <button type="button" className="tool-card-main" onClick={onSelect} aria-pressed={isActive}>
-        <span className="tool-card-icon">{Icon ? <Icon size={20} aria-hidden="true" /> : null}</span>
+        <span className="tool-card-icon">
+          {Icon ? <Icon size={20} aria-hidden="true" /> : null}
+          {tool.updated && <span className="tool-card-updated-dot" aria-label="Recently updated" />}
+        </span>
         <span>
           <span className="tool-card-title">{tool.name}</span>
           <span className="tool-card-meta">

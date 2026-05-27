@@ -1,78 +1,145 @@
 import { useMemo, useState } from 'react'
-import { Clipboard, RotateCcw } from 'lucide-react'
+import { create } from 'jsondiffpatch'
+import { Clipboard, RotateCcw, Search } from 'lucide-react'
 
-function diffObjects(a, b, path = '') {
-  const changes = []
-  const typeA = a === null ? 'null' : Array.isArray(a) ? 'array' : typeof a
-  const typeB = b === null ? 'null' : Array.isArray(b) ? 'array' : typeof b
-
-  if (typeA !== typeB) {
-    changes.push({ type: 'changed', path: path || '(root)', from: JSON.stringify(a), to: JSON.stringify(b) })
-    return changes
-  }
-
-  if (typeA !== 'object' && typeA !== 'array') {
-    if (a !== b) {
-      changes.push({ type: 'changed', path: path || '(root)', from: JSON.stringify(a), to: JSON.stringify(b) })
-    }
-    return changes
-  }
-
-  const keysA = Object.keys(a)
-  const keysB = Object.keys(b)
-  const allKeys = [...new Set([...keysA, ...keysB])]
-
-  for (const key of allKeys) {
-    const segment = typeA === 'array' ? `[${key}]` : `.${key}`
-    const nextPath = path ? `${path}${segment}` : (typeA === 'array' ? segment : key)
-    if (!(key in a)) {
-      changes.push({ type: 'added', path: nextPath, from: null, to: JSON.stringify(b[key]) })
-    } else if (!(key in b)) {
-      changes.push({ type: 'removed', path: nextPath, from: JSON.stringify(a[key]), to: null })
-    } else {
-      changes.push(...diffObjects(a[key], b[key], nextPath))
-    }
-  }
-
-  return changes
-}
+const jsonDiff = create({
+  objectHash: (obj, index) => obj?.id ?? obj?.name ?? `$${index}`,
+})
 
 const SAMPLE_A = `{
   "name": "everyday-tools",
   "version": "0.1.0",
   "private": true,
-  "author": "Jane"
+  "features": {
+    "json": true,
+    "diff": false
+  },
+  "items": [
+    { "id": 1, "name": "QR Code", "live": true },
+    { "id": 2, "name": "Password", "live": true }
+  ]
 }`
 
 const SAMPLE_B = `{
   "name": "everyday-tools",
   "version": "0.2.0",
   "private": false,
+  "features": {
+    "json": true,
+    "diff": true
+  },
+  "items": [
+    { "id": 1, "name": "QR Code", "live": true },
+    { "id": 2, "name": "Password Generator", "live": true },
+    { "id": 3, "name": "Text Diff", "live": true }
+  ],
   "license": "MIT"
 }`
 
 const SYMBOLS = { added: '+', removed: '−', changed: '~' }
 
+function stringify(value) {
+  return typeof value === 'string' ? JSON.stringify(value) : JSON.stringify(value, null, 2)
+}
+
+function classifyDelta(delta) {
+  if (Array.isArray(delta)) {
+    if (delta.length === 1) return 'added'
+    if (delta.length === 3 && delta[1] === 0 && delta[2] === 0) return 'removed'
+    if (delta.length === 2) return 'changed'
+  }
+  return 'changed'
+}
+
+function flattenDelta(delta, path = '(root)') {
+  if (!delta || typeof delta !== 'object') return []
+
+  if (Array.isArray(delta)) {
+    const type = classifyDelta(delta)
+    return [
+      {
+        type,
+        path,
+        from: type === 'added' ? null : stringify(delta[0]),
+        to: type === 'removed' ? null : stringify(type === 'changed' ? delta[1] : delta[0]),
+      },
+    ]
+  }
+
+  const entries = Object.entries(delta).filter(([key]) => key !== '_t')
+  const isArrayDelta = delta._t === 'a'
+
+  return entries.flatMap(([key, value]) => {
+    const normalizedKey = key.startsWith('_') ? key.slice(1) : key
+    const segment = isArrayDelta ? `[${normalizedKey}]` : (path === '(root)' ? normalizedKey : `.${normalizedKey}`)
+    const nextPath = path === '(root)' ? (isArrayDelta ? segment : normalizedKey) : `${path}${segment}`
+    return flattenDelta(value, nextPath)
+  })
+}
+
+function buildPathGroups(changes, query) {
+  const lowered = query.trim().toLowerCase()
+  const filtered = lowered
+    ? changes.filter(
+        (change) =>
+          change.path.toLowerCase().includes(lowered) ||
+          String(change.from ?? '').toLowerCase().includes(lowered) ||
+          String(change.to ?? '').toLowerCase().includes(lowered),
+      )
+    : changes
+
+  const groups = new Map()
+  filtered.forEach((change) => {
+    const topLevel = change.path === '(root)' ? '(root)' : change.path.split(/[.[\]]/).filter(Boolean)[0] || '(root)'
+    const current = groups.get(topLevel)
+    if (current) {
+      current.changes.push(change)
+    } else {
+      groups.set(topLevel, { group: topLevel, changes: [change] })
+    }
+  })
+
+  return [...groups.values()].sort((first, second) => first.group.localeCompare(second.group))
+}
+
 export function JSONDiff() {
   const [left, setLeft] = useState(SAMPLE_A)
   const [right, setRight] = useState(SAMPLE_B)
+  const [search, setSearch] = useState('')
+  const [collapsedGroups, setCollapsedGroups] = useState({})
   const [message, setMessage] = useState('')
 
   const result = useMemo(() => {
-    let a, b
-    try { a = JSON.parse(left) } catch (e) { return { leftError: e.message } }
-    try { b = JSON.parse(right) } catch (e) { return { rightError: e.message } }
-    return { changes: diffObjects(a, b) }
+    let first
+    let second
+    try {
+      first = JSON.parse(left)
+    } catch (error) {
+      return { leftError: error.message }
+    }
+    try {
+      second = JSON.parse(right)
+    } catch (error) {
+      return { rightError: error.message }
+    }
+
+    const delta = jsonDiff.diff(first, second)
+    return { delta, changes: flattenDelta(delta) }
   }, [left, right])
 
   const counts = useMemo(() => {
     if (!result.changes) return null
     return {
-      added: result.changes.filter((c) => c.type === 'added').length,
-      removed: result.changes.filter((c) => c.type === 'removed').length,
-      changed: result.changes.filter((c) => c.type === 'changed').length,
+      added: result.changes.filter((change) => change.type === 'added').length,
+      removed: result.changes.filter((change) => change.type === 'removed').length,
+      changed: result.changes.filter((change) => change.type === 'changed').length,
     }
   }, [result])
+
+  const groups = useMemo(() => {
+    if (!result.changes) return []
+    return buildPathGroups(result.changes, search)
+  }, [result, search])
 
   async function copyDiff() {
     if (!result.changes) return
@@ -89,6 +156,15 @@ export function JSONDiff() {
   function reset() {
     setLeft(SAMPLE_A)
     setRight(SAMPLE_B)
+    setSearch('')
+    setCollapsedGroups({})
+  }
+
+  function toggleGroup(groupName) {
+    setCollapsedGroups((current) => ({
+      ...current,
+      [groupName]: !current[groupName],
+    }))
   }
 
   const hasChanges = result.changes && result.changes.length > 0
@@ -119,47 +195,55 @@ export function JSONDiff() {
         </div>
       </div>
 
+      <label className="json-diff-search">
+        <Search size={16} aria-hidden="true" />
+        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search paths or values" type="search" />
+        <span>{groups.reduce((sum, group) => sum + group.changes.length, 0)}</span>
+      </label>
+
       <div className="json-diff-inputs">
         <label>
           JSON A — original
-          <textarea
-            className="json-diff-textarea"
-            value={left}
-            onChange={(e) => setLeft(e.target.value)}
-            spellCheck={false}
-          />
-          {result.leftError && (
-            <p className="helper-text json-diff-error">Parse error: {result.leftError}</p>
-          )}
+          <textarea className="json-diff-textarea" value={left} onChange={(event) => setLeft(event.target.value)} spellCheck={false} />
+          {result.leftError && <p className="helper-text json-diff-error">Parse error: {result.leftError}</p>}
         </label>
         <label>
           JSON B — modified
-          <textarea
-            className="json-diff-textarea"
-            value={right}
-            onChange={(e) => setRight(e.target.value)}
-            spellCheck={false}
-          />
-          {result.rightError && (
-            <p className="helper-text json-diff-error">Parse error: {result.rightError}</p>
-          )}
+          <textarea className="json-diff-textarea" value={right} onChange={(event) => setRight(event.target.value)} spellCheck={false} />
+          {result.rightError && <p className="helper-text json-diff-error">Parse error: {result.rightError}</p>}
         </label>
       </div>
 
       {hasChanges && (
         <div className="json-diff-output">
-          {result.changes.map((change, i) => (
-            <div key={i} className={`json-diff-row ${change.type}`}>
-              <span aria-hidden="true">{SYMBOLS[change.type]}</span>
-              <div>
-                <code className="json-diff-path">{change.path}</code>
-                <div className="json-diff-values">
-                  {change.from !== null && <code className="json-diff-from">{change.from}</code>}
-                  {change.type === 'changed' && <span className="json-diff-arrow" aria-hidden="true">→</span>}
-                  {change.to !== null && <code className="json-diff-to">{change.to}</code>}
+          {groups.map((group) => (
+            <section key={group.group} className="json-diff-group">
+              <button type="button" className="json-diff-group-toggle" onClick={() => toggleGroup(group.group)}>
+                <strong>{group.group}</strong>
+                <span>{group.changes.length} changes</span>
+              </button>
+              {!collapsedGroups[group.group] && (
+                <div className="json-diff-group-rows">
+                  {group.changes.map((change, index) => (
+                    <div key={`${group.group}-${change.path}-${index}`} className={`json-diff-row ${change.type}`}>
+                      <span aria-hidden="true">{SYMBOLS[change.type]}</span>
+                      <div>
+                        <code className="json-diff-path">{change.path}</code>
+                        <div className="json-diff-values">
+                          {change.from !== null && <code className="json-diff-from">{change.from}</code>}
+                          {change.type === 'changed' && (
+                            <span className="json-diff-arrow" aria-hidden="true">
+                              →
+                            </span>
+                          )}
+                          {change.to !== null && <code className="json-diff-to">{change.to}</code>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
-            </div>
+              )}
+            </section>
           ))}
         </div>
       )}
@@ -170,7 +254,7 @@ export function JSONDiff() {
         </div>
       )}
 
-      <p className="helper-text">{message || 'Differences are shown as paths. Arrays are compared by index.'}</p>
+      <p className="helper-text">{message || 'Diffs are grouped by top-level path so larger objects are easier to scan.'}</p>
     </div>
   )
 }

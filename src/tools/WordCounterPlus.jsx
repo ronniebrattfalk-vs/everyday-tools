@@ -5,6 +5,16 @@ const sampleText = `Everyday Tools is a browser-only utility suite focused on pr
 
 The strongest tools are fast, private, and easy to understand. This counter helps review drafts before publishing.`
 
+function readabilityGrade(score) {
+  if (score >= 90) return 'Very Easy (5th grade)'
+  if (score >= 80) return 'Easy (6th grade)'
+  if (score >= 70) return 'Fairly Easy (7th grade)'
+  if (score >= 60) return 'Standard (8th–9th grade)'
+  if (score >= 50) return 'Fairly Difficult (10th–12th grade)'
+  if (score >= 30) return 'Difficult (College level)'
+  return 'Very Confusing (Professional)'
+}
+
 function countSyllables(word) {
   const cleaned = word.toLowerCase().replace(/[^a-z]/g, '')
   if (!cleaned) return 0
@@ -98,13 +108,17 @@ export function WordCounterPlus() {
           ['Paragraphs', stats.paragraphs],
           ['Characters', stats.characters],
           ['Read time', `${stats.readingMinutes.toFixed(1)} min`],
-          ['Readability', stats.readability.toFixed(1)],
         ].map(([label, value]) => (
           <article key={label}>
             <span>{label}</span>
             <strong>{value}</strong>
           </article>
         ))}
+        <article>
+          <span>Readability</span>
+          <strong>{stats.readability.toFixed(1)}</strong>
+          <small className="wc-grade">{readabilityGrade(stats.readability)}</small>
+        </article>
         <article className="wide">
           <span>Top keywords</span>
           <p>{stats.keywords.map(([word, count]) => `${word} (${count})`).join(', ') || 'No keywords yet.'}</p>

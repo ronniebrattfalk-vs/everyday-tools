@@ -12,7 +12,7 @@ function tokenize(raw) {
     if (/[0-9.]/.test(ch)) {
       let j = i + 1
       while (j < s.length && /[0-9.]/.test(s[j])) j++
-      if ((s[j] === 'e' || s[j] === 'E') && /[0-9+\-]/.test(s[j + 1] ?? '')) {
+      if ((s[j] === 'e' || s[j] === 'E') && /[0-9+-]/.test(s[j + 1] ?? '')) {
         j++
         if (s[j] === '+' || s[j] === '-') j++
         while (j < s.length && /[0-9]/.test(s[j])) j++

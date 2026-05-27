@@ -43,6 +43,7 @@ export function JSONCSVConverter() {
   const [mode, setMode] = useState('json-to-csv')
   const [input, setInput] = useState(SAMPLE_JSON)
   const [message, setMessage] = useState('')
+  const [isDragging, setIsDragging] = useState(false)
   const fileRef = useRef(null)
 
   function flash(msg) {
@@ -78,12 +79,15 @@ export function JSONCSVConverter() {
     }
   }
 
-  function handleFile(e) {
-    const file = e.target.files?.[0]
+  function loadFileText(file) {
     if (!file) return
     const reader = new FileReader()
-    reader.onload = (ev) => setInput(ev.target.result ?? '')
+    reader.onload = (ev) => { setInput(ev.target.result ?? ''); flash(`${file.name} loaded`) }
     reader.readAsText(file)
+  }
+
+  function handleFile(e) {
+    loadFileText(e.target.files?.[0])
     e.target.value = ''
   }
 
@@ -102,7 +106,12 @@ export function JSONCSVConverter() {
 
   return (
     <div className="tool-body csv-json-tool">
-      <div className="csv-json-left">
+      <div
+        className={`csv-json-left${isDragging ? ' is-dragging' : ''}`}
+        onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+        onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setIsDragging(false) }}
+        onDrop={(e) => { e.preventDefault(); setIsDragging(false); loadFileText(e.dataTransfer.files?.[0]) }}
+      >
         <div className="section-title-row">
           <span className="section-title">Input</span>
           <div className="category-tabs compact">

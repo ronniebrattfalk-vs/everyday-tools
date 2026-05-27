@@ -30,11 +30,9 @@ export function LetterTemplateBuilder() {
   const [body,          setBody]          = useState('')
   const [closing,       setClosing]       = useState('Sincerely')
   const [copied,        setCopied]        = useState(false)
-  const [activeTab,     setActiveTab]     = useState('form')
 
   function applyTemplate(t) {
     setBody(t.body)
-    setActiveTab('form')
   }
 
   const salutation = opening === 'To Whom It May Concern,' ? opening : `${opening}${recipientName ? ` ${recipientName}` : ''},`

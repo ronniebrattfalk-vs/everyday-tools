@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Printer, Trash2 } from 'lucide-react'
+import { BookOpen, Plus, Printer, Save, Trash2, X } from 'lucide-react'
 
-const SENDER_KEY = 'everyday-tools-quote-sender'
+const SENDER_KEY   = 'everyday-tools-quote-sender'
+const TMPL_KEY     = 'everyday-tools-quote-templates'
+const LINE_LIB_KEY = 'everyday-tools-quote-line-lib'
 
-function loadSender() {
-  try { return JSON.parse(localStorage.getItem(SENDER_KEY) || 'null') } catch { return null }
+function loadJson(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback } catch { return fallback }
 }
-function saveSender(s) { try { localStorage.setItem(SENDER_KEY, JSON.stringify(s)) } catch {} }
+function saveJson(key, value) { try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* ignore */ } }
 
 const DEFAULT_SENDER = { name: '', company: '', email: '', phone: '', address: '' }
 const EMPTY_LINE = { description: '', qty: '1', price: '' }
@@ -18,17 +20,26 @@ function uid() { return Math.random().toString(36).slice(2, 9) }
 function today() { return new Date().toISOString().slice(0, 10) }
 
 export function QuoteGenerator() {
-  const [sender,     setSender]     = useState(() => loadSender() ?? DEFAULT_SENDER)
-  const [client,     setClient]     = useState({ name: '', company: '', email: '' })
-  const [quoteNum,   setQuoteNum]   = useState(() => `Q-${Date.now().toString().slice(-6)}`)
-  const [quoteDate,  setQuoteDate]  = useState(today)
-  const [validDays,  setValidDays]  = useState('30')
-  const [lines,      setLines]      = useState([{ id: uid(), ...EMPTY_LINE }])
-  const [discount,   setDiscount]   = useState('0')
-  const [tax,        setTax]        = useState('0')
-  const [notes,      setNotes]      = useState('')
+  const [sender,    setSender]    = useState(() => loadJson(SENDER_KEY, DEFAULT_SENDER))
+  const [client,    setClient]    = useState({ name: '', company: '', email: '' })
+  const [quoteNum,  setQuoteNum]  = useState(() => `Q-${Date.now().toString().slice(-6)}`)
+  const [quoteDate, setQuoteDate] = useState(today)
+  const [validDays, setValidDays] = useState('30')
+  const [lines,     setLines]     = useState([{ id: uid(), ...EMPTY_LINE }])
+  const [discount,  setDiscount]  = useState('0')
+  const [tax,       setTax]       = useState('0')
+  const [notes,     setNotes]     = useState('')
 
-  useEffect(() => { saveSender(sender) }, [sender])
+  const [templates,       setTemplates]       = useState(() => loadJson(TMPL_KEY, []))
+  const [lineLib,         setLineLib]         = useState(() => loadJson(LINE_LIB_KEY, []))
+  const [tmplName,        setTmplName]        = useState('')
+  const [selectedTmplId,  setSelectedTmplId]  = useState('')
+  const [showLineLib,     setShowLineLib]      = useState(false)
+  const [message,         setMessage]         = useState('')
+
+  useEffect(() => { saveJson(SENDER_KEY, sender) }, [sender])
+
+  function flash(msg) { setMessage(msg); setTimeout(() => setMessage(''), 1800) }
 
   function setSenderField(k, v) { setSender(s => ({ ...s, [k]: v })) }
   function setClientField(k, v) { setClient(c => ({ ...c, [k]: v })) }
@@ -38,11 +49,7 @@ export function QuoteGenerator() {
   function setLineField(id, k, v) { setLines(l => l.map(x => x.id === id ? { ...x, [k]: v } : x)) }
 
   const subtotal = useMemo(() =>
-    lines.reduce((s, l) => {
-      const q = parseFloat(l.qty) || 0
-      const p = parseFloat(l.price) || 0
-      return s + q * p
-    }, 0),
+    lines.reduce((s, l) => s + (parseFloat(l.qty) || 0) * (parseFloat(l.price) || 0), 0),
     [lines]
   )
   const discountAmt = subtotal * (parseFloat(discount) || 0) / 100
@@ -56,9 +63,71 @@ export function QuoteGenerator() {
     return d.toISOString().slice(0, 10)
   }, [quoteDate, validDays])
 
+  // ── Quote templates ───────────────────────────────────
+
+  function saveTemplate() {
+    const name = tmplName.trim()
+    if (!name) { flash('Add a template name first'); return }
+    const tmpl = { id: uid(), name, notes, validDays, discount, tax }
+    setTemplates(current => {
+      const next = [...current, tmpl]
+      saveJson(TMPL_KEY, next)
+      return next
+    })
+    setSelectedTmplId(tmpl.id)
+    setTmplName('')
+    flash(`Saved template "${name}"`)
+  }
+
+  function applyTemplate() {
+    const tmpl = templates.find(t => t.id === selectedTmplId)
+    if (!tmpl) return
+    setNotes(tmpl.notes)
+    setValidDays(tmpl.validDays)
+    setDiscount(tmpl.discount)
+    setTax(tmpl.tax)
+    flash(`Applied template "${tmpl.name}"`)
+  }
+
+  function deleteTemplate() {
+    if (!selectedTmplId) return
+    setTemplates(current => {
+      const next = current.filter(t => t.id !== selectedTmplId)
+      saveJson(TMPL_KEY, next)
+      return next
+    })
+    setSelectedTmplId('')
+    flash('Template removed')
+  }
+
+  // ── Line-item library ─────────────────────────────────
+
+  function saveLineToLib(line) {
+    if (!line.description.trim()) { flash('Add a description before saving'); return }
+    const entry = { id: uid(), description: line.description, qty: line.qty, price: line.price }
+    setLineLib(current => {
+      const next = [...current, entry]
+      saveJson(LINE_LIB_KEY, next)
+      return next
+    })
+    flash(`Saved "${line.description}" to library`)
+  }
+
+  function addLibLine(entry) {
+    setLines(l => [...l, { id: uid(), description: entry.description, qty: entry.qty, price: entry.price }])
+    flash(`Added "${entry.description}"`)
+  }
+
+  function deleteLibLine(id) {
+    setLineLib(current => {
+      const next = current.filter(e => e.id !== id)
+      saveJson(LINE_LIB_KEY, next)
+      return next
+    })
+  }
+
   const hasDiscount = (parseFloat(discount) || 0) > 0
   const hasTax      = (parseFloat(tax) || 0) > 0
-
   const ICN = { display: 'inline', verticalAlign: 'middle', marginRight: 4 }
 
   return (
@@ -152,19 +221,57 @@ export function QuoteGenerator() {
                 <span className="quote-col-total quote-line-total">{usd(lineTotal)}</span>
                 <button
                   type="button"
-                  className="icon-button quote-col-del"
+                  className="icon-button"
+                  onClick={() => saveLineToLib(line)}
+                  title="Save to library"
+                  aria-label="Save line to library"
+                >
+                  <BookOpen size={13} />
+                </button>
+                <button
+                  type="button"
+                  className="icon-button"
                   onClick={() => removeLine(line.id)}
                   disabled={lines.length === 1}
                   title="Remove line"
+                  aria-label="Remove line"
                 >
                   <Trash2 size={13} />
                 </button>
               </div>
             )
           })}
-          <button type="button" className="secondary-button quote-add-line" onClick={addLine}>
-            <Plus size={13} style={ICN} />Add Line
-          </button>
+          <div className="quote-line-actions">
+            <button type="button" className="secondary-button" onClick={addLine}>
+              <Plus size={13} style={ICN} />Add Line
+            </button>
+            <button
+              type="button"
+              className={`secondary-button${showLineLib ? ' is-active' : ''}`}
+              onClick={() => setShowLineLib(v => !v)}
+            >
+              <BookOpen size={13} style={ICN} />Library{lineLib.length > 0 ? ` (${lineLib.length})` : ''}
+            </button>
+          </div>
+          {showLineLib && (
+            <div className="quote-lib-panel">
+              {lineLib.length === 0
+                ? <p className="helper-text">No saved items. Click the bookmark icon on any line to save it here.</p>
+                : lineLib.map(entry => (
+                    <div key={entry.id} className="quote-lib-entry">
+                      <span className="quote-lib-desc">{entry.description}</span>
+                      <span className="quote-lib-meta">{entry.qty} × {entry.price ? usd(parseFloat(entry.price)) : '—'}</span>
+                      <button type="button" className="secondary-button" onClick={() => addLibLine(entry)}>
+                        <Plus size={11} style={ICN} />Add
+                      </button>
+                      <button type="button" className="icon-button" onClick={() => deleteLibLine(entry.id)} aria-label="Remove from library">
+                        <X size={11} />
+                      </button>
+                    </div>
+                  ))
+              }
+            </div>
+          )}
         </div>
 
         <div className="quote-totals-form">
@@ -188,6 +295,39 @@ export function QuoteGenerator() {
             placeholder="Payment terms, delivery details, or any other notes..."
           />
         </div>
+
+        <div className="quote-section-title">Templates</div>
+        <div className="quote-tmpl-row">
+          <div className="field-group">
+            <label className="field-label">Saved templates</label>
+            <select value={selectedTmplId} onChange={e => setSelectedTmplId(e.target.value)}>
+              <option value="">Choose a saved template</option>
+              {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          </div>
+          <div className="button-row" style={{ marginTop: 0, alignSelf: 'flex-end' }}>
+            <button type="button" className="secondary-button" onClick={applyTemplate} disabled={!selectedTmplId}>
+              Apply
+            </button>
+            <button type="button" className="secondary-button" onClick={deleteTemplate} disabled={!selectedTmplId}>
+              Delete
+            </button>
+          </div>
+        </div>
+        <div className="quote-tmpl-save">
+          <input
+            className="text-input"
+            value={tmplName}
+            onChange={e => setTmplName(e.target.value)}
+            placeholder="Template name, e.g. Standard consulting"
+          />
+          <button type="button" className="secondary-button" onClick={saveTemplate}>
+            <Save size={14} style={ICN} />Save current as template
+          </button>
+        </div>
+        <p className="helper-text" style={{ marginTop: 4 }}>
+          {message || 'Templates save notes, valid days, discount, and tax. Line items are saved separately via the library.'}
+        </p>
       </div>
 
       <div className="quote-preview-area" id="quote-print-target">

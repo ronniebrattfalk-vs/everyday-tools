@@ -1,18 +1,18 @@
 import { useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Download, Plus, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Download, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import Papa from 'papaparse'
 
-const STORAGE_KEY = 'everyday-tools-budget'
+const STORAGE_KEY   = 'everyday-tools-budget'
+const RECURRING_KEY = 'everyday-tools-budget-recurring'
 
 const INCOME_CATS  = ['Salary', 'Freelance', 'Investment', 'Rental', 'Side Project', 'Other Income']
 const EXPENSE_CATS = ['Housing', 'Food & Dining', 'Transport', 'Utilities', 'Health', 'Entertainment', 'Shopping', 'Education', 'Subscriptions', 'Other']
 
-function loadAll() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') } catch { return {} }
-}
-function saveAll(data) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)) } catch {}
-}
+function loadAll()       { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)   || '{}') } catch { return {} } }
+function saveAll(data)   { try { localStorage.setItem(STORAGE_KEY,   JSON.stringify(data))       } catch { /* ignore */ } }
+function loadRecurring() { try { return JSON.parse(localStorage.getItem(RECURRING_KEY) || '[]') } catch { return [] } }
+function saveRecurring(r){ try { localStorage.setItem(RECURRING_KEY, JSON.stringify(r))          } catch { /* ignore */ } }
+
 function curMonth() { return new Date().toISOString().slice(0, 7) }
 function shiftMonth(m, delta) {
   const [y, mo] = m.split('-').map(Number)
@@ -29,6 +29,7 @@ function usd(n) {
 
 const EMPTY_INCOME  = { category: INCOME_CATS[0],  description: '', amount: '' }
 const EMPTY_EXPENSE = { category: EXPENSE_CATS[0], description: '', amount: '' }
+const EMPTY_RECUR   = { type: 'expense', category: EXPENSE_CATS[0], description: '', amount: '' }
 const ICN = { display: 'inline', verticalAlign: 'middle', marginRight: 4 }
 
 function BudgetPanel({ type, cats, form, setForm, list, total, colorClass, onAdd, onDelete }) {
@@ -87,7 +88,7 @@ function BudgetPanel({ type, cats, form, setForm, list, total, colorClass, onAdd
                 <td className="budget-td-desc">{item.description || <span className="budget-desc-empty">—</span>}</td>
                 <td className="budget-td-amount">{usd(item.amount)}</td>
                 <td className="budget-td-del">
-                  <button type="button" className="icon-button" onClick={() => onDelete(item.id)} title="Delete">
+                  <button type="button" className="icon-button" onClick={() => onDelete(item.id)} aria-label="Delete entry" title="Delete">
                     <Trash2 size={13} />
                   </button>
                 </td>
@@ -110,13 +111,16 @@ function BudgetPanel({ type, cats, form, setForm, list, total, colorClass, onAdd
 }
 
 export function BudgetPlanner() {
-  const [month, setMonth] = useState(curMonth)
-  const [allData, setAllData] = useState(loadAll)
+  const [month,       setMonth]       = useState(curMonth)
+  const [allData,     setAllData]     = useState(loadAll)
+  const [recurring,   setRecurring]   = useState(loadRecurring)
   const [incomeForm,  setIncomeForm]  = useState(EMPTY_INCOME)
   const [expenseForm, setExpenseForm] = useState(EMPTY_EXPENSE)
+  const [recurForm,   setRecurForm]   = useState(EMPTY_RECUR)
+  const [showRecurring, setShowRecurring] = useState(false)
   const [message, setMessage] = useState('')
 
-  const items    = allData[month] ?? []
+  const items    = useMemo(() => allData[month] ?? [], [allData, month])
   const income   = useMemo(() => items.filter(i => i.type === 'income'),  [items])
   const expenses = useMemo(() => items.filter(i => i.type === 'expense'), [items])
 
@@ -124,7 +128,19 @@ export function BudgetPlanner() {
   const totalExpenses = useMemo(() => expenses.reduce((s, i) => s + i.amount, 0), [expenses])
   const balance = totalIncome - totalExpenses
 
-  function flash(msg) { setMessage(msg); setTimeout(() => setMessage(''), 1500) }
+  function flash(msg) { setMessage(msg); setTimeout(() => setMessage(''), 2000) }
+
+  function navigateMonth(delta) {
+    const newMonth = shiftMonth(month, delta)
+    setMonth(newMonth)
+    if (!allData[newMonth] && recurring.length > 0) {
+      const seeded = recurring.map((r, i) => ({ ...r, id: Date.now() + i }))
+      const updated = { ...allData, [newMonth]: seeded }
+      setAllData(updated)
+      saveAll(updated)
+      flash(`${recurring.length} recurring item${recurring.length !== 1 ? 's' : ''} applied to ${monthLabel(newMonth)}`)
+    }
+  }
 
   function addItem(type, form, resetForm) {
     const amount = parseFloat(form.amount)
@@ -140,6 +156,35 @@ export function BudgetPlanner() {
     const updated = { ...allData, [month]: (allData[month] ?? []).filter(i => i.id !== id) }
     setAllData(updated)
     saveAll(updated)
+  }
+
+  function addRecurringItem() {
+    const amount = parseFloat(recurForm.amount)
+    if (isNaN(amount) || amount <= 0) { flash('Enter a valid amount.'); return }
+    const entry = { id: Date.now(), type: recurForm.type, category: recurForm.category, description: recurForm.description.trim(), amount }
+    const next = [...recurring, entry]
+    setRecurring(next)
+    saveRecurring(next)
+    setRecurForm(f => ({ ...f, description: '', amount: '' }))
+  }
+
+  function deleteRecurringItem(id) {
+    const next = recurring.filter(r => r.id !== id)
+    setRecurring(next)
+    saveRecurring(next)
+  }
+
+  function applyRecurringNow() {
+    if (!recurring.length) return
+    const seeded = recurring.map((r, i) => ({ ...r, id: Date.now() + i }))
+    const updated = { ...allData, [month]: [...(allData[month] ?? []), ...seeded] }
+    setAllData(updated)
+    saveAll(updated)
+    flash(`${recurring.length} recurring item${recurring.length !== 1 ? 's' : ''} added to ${monthLabel(month)}`)
+  }
+
+  function handleRecurTypeChange(type) {
+    setRecurForm(f => ({ ...f, type, category: (type === 'income' ? INCOME_CATS : EXPENSE_CATS)[0] }))
   }
 
   function exportCsv() {
@@ -159,11 +204,11 @@ export function BudgetPlanner() {
     <div className="tool-body budget-tool">
       <div className="budget-topbar">
         <div className="budget-month-nav">
-          <button type="button" className="icon-button" onClick={() => setMonth(m => shiftMonth(m, -1))}>
+          <button type="button" className="icon-button" onClick={() => navigateMonth(-1)} aria-label="Previous month">
             <ChevronLeft size={18} />
           </button>
           <span className="budget-month-label">{monthLabel(month)}</span>
-          <button type="button" className="icon-button" onClick={() => setMonth(m => shiftMonth(m, +1))}>
+          <button type="button" className="icon-button" onClick={() => navigateMonth(+1)} aria-label="Next month">
             <ChevronRight size={18} />
           </button>
         </div>
@@ -214,6 +259,109 @@ export function BudgetPlanner() {
           onAdd={addItem}
           onDelete={deleteItem}
         />
+      </div>
+
+      {/* Recurring items section */}
+      <div className="budget-recurring-section">
+        <button
+          type="button"
+          className="budget-recurring-toggle"
+          onClick={() => setShowRecurring(v => !v)}
+          aria-expanded={showRecurring}
+        >
+          <RefreshCw size={13} aria-hidden="true" />
+          Recurring items
+          {recurring.length > 0 && (
+            <span className="budget-recur-count" aria-label={`${recurring.length} recurring items`}>
+              {recurring.length}
+            </span>
+          )}
+          <ChevronDown
+            size={14}
+            aria-hidden="true"
+            style={{ marginLeft: 'auto', transform: showRecurring ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }}
+          />
+        </button>
+
+        {showRecurring && (
+          <div className="budget-recurring-body">
+            <div className="budget-recurring-form">
+              <select
+                className="select-input"
+                value={recurForm.type}
+                onChange={e => handleRecurTypeChange(e.target.value)}
+                aria-label="Type"
+              >
+                <option value="income">Income</option>
+                <option value="expense">Expense</option>
+              </select>
+              <select
+                className="select-input budget-add-cat"
+                value={recurForm.category}
+                onChange={e => setRecurForm(f => ({ ...f, category: e.target.value }))}
+                aria-label="Category"
+              >
+                {(recurForm.type === 'income' ? INCOME_CATS : EXPENSE_CATS).map(c => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+              <input
+                type="text"
+                className="text-input budget-add-desc"
+                value={recurForm.description}
+                onChange={e => setRecurForm(f => ({ ...f, description: e.target.value }))}
+                onKeyDown={e => e.key === 'Enter' && addRecurringItem()}
+                placeholder="Description"
+              />
+              <input
+                type="number"
+                className="text-input budget-add-amount"
+                value={recurForm.amount}
+                min={0}
+                step="0.01"
+                onChange={e => setRecurForm(f => ({ ...f, amount: e.target.value }))}
+                onKeyDown={e => e.key === 'Enter' && addRecurringItem()}
+                placeholder="0.00"
+              />
+              <button type="button" className="primary-button budget-add-btn" onClick={addRecurringItem}>
+                <Plus size={13} style={ICN} />Add
+              </button>
+            </div>
+
+            {recurring.length > 0 ? (
+              <>
+                <table className="budget-table">
+                  <tbody>
+                    {recurring.map(r => (
+                      <tr key={r.id}>
+                        <td>
+                          <span className={`budget-recur-badge budget-recur-badge--${r.type}`}>{r.type}</span>
+                        </td>
+                        <td className="budget-td-cat">{r.category}</td>
+                        <td className="budget-td-desc">{r.description || <span className="budget-desc-empty">—</span>}</td>
+                        <td className="budget-td-amount">{usd(r.amount)}</td>
+                        <td className="budget-td-del">
+                          <button type="button" className="icon-button" onClick={() => deleteRecurringItem(r.id)} aria-label="Delete recurring item" title="Delete">
+                            <Trash2 size={13} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <button type="button" className="secondary-button" onClick={applyRecurringNow} style={{ alignSelf: 'flex-start' }}>
+                  <RefreshCw size={13} style={ICN} />Apply to {monthLabel(month)}
+                </button>
+              </>
+            ) : (
+              <p className="budget-recur-empty">No recurring items yet. Add income or expense templates above to auto-populate new months.</p>
+            )}
+
+            <p className="helper-text" style={{ marginBottom: 0 }}>
+              Recurring items are applied automatically when you navigate to a month with no data yet.
+            </p>
+          </div>
+        )}
       </div>
 
       <p className="helper-text">

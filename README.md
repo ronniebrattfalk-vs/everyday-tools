@@ -34,19 +34,19 @@ $env:BASE_PATH='/everyday-tools/'; npm run build
 ## Live MVP Tools
 
 - QR Code Generator: text/URL input, instant preview, copy text, download PNG.
-- Password Generator: secure random generation, length slider, character set toggles, strength indicator, copy.
+- Password Generator: secure random generation, passphrase mode, length/word controls, strength indicator, and copy.
 - Unit Converter: length, weight, temperature, and data size conversions.
 - Timestamp Converter: Unix seconds/milliseconds, local datetime, ISO output, and selected time zones.
-- JSON Formatter: validate, format, minify, sort keys, search output, syntax-highlight preview, upload/download, and copy output.
-- Invoice Generator: editable invoice details, line items, discount, tax/VAT totals, logo upload, payment details, local draft saving, and print/PDF.
-- Resume Helper: guided inputs for summaries, achievement bullets, cover letters, and LinkedIn headlines.
-- PDF Tools: create a PDF from PNG/JPG images, merge PDF files, or split selected pages with ordering, output naming, and download.
-- Text Diff Checker: compare two text blocks, highlight line changes, copy diff output, and download `.diff`.
-- CSV Cleaner: paste or upload CSV, trim cells, remove empty/duplicate rows, preview data, and export CSV or JSON.
-- Image Resizer: resize, convert, compress, preview, and download JPG, PNG, or WebP images locally.
-- Markdown Previewer: write Markdown with live preview, word count, copy sanitized HTML, and download.
-- Color Contrast Checker: check WCAG contrast, copy colors, and generate palette swatches.
-- Regex Tester: test patterns with flags, highlighted matches, capture groups, snippets, and copy output.
+- JSON Formatter: validate, format, minify, sort keys, filter with JSONPath, search output, syntax-highlight preview, upload/download, and copy output.
+- Invoice Generator: editable invoice details, line items, discount, tax/VAT totals, logo upload, saved presets, accent themes, local draft saving, and print/PDF.
+- Resume Helper: guided inputs for summaries, achievement bullets, cover letters, LinkedIn headlines, and bullet-quality analysis.
+- PDF Tools: create a PDF from PNG/JPG images, merge or split PDF files, preview pages with thumbnails, and optionally compress merge/split output locally.
+- Text Diff Checker: compare two text blocks with line-level or word-level changes, copy diff output, and download `.diff`.
+- CSV Cleaner: paste or upload CSV, trim cells, detect or remove duplicate rows, inspect column stats, preview data, and export CSV or JSON.
+- Image Resizer: resize, convert, preview, batch-download, and compress JPG, PNG, or WebP images with canvas, smart, or photo compression modes locally.
+- Markdown Previewer: write Markdown with live preview, syntax-highlighted code blocks, word count, copy sanitized HTML, and download.
+- Color Contrast Checker: check WCAG contrast, copy colors, receive converter colors, and generate palette swatches.
+- Regex Tester: test patterns with flags, highlighted matches, replace preview, capture groups, snippets, and copy output.
 - Cron Builder: build cron expressions, apply schedule presets, and preview next run times.
 - URL Encoder And UTM Builder: encode/decode URLs and generate campaign links with UTM parameters.
 
@@ -66,7 +66,7 @@ $env:BASE_PATH='/everyday-tools/'; npm run build
 
 ### Phase 3: Business Tools
 
-- Completed Invoice Generator with sender/client fields, line items, discounts, tax/VAT, totals, logo upload, payment details, browser print/PDF, and local draft saving.
+- Completed Invoice Generator with sender/client fields, line items, discounts, tax/VAT, totals, logo upload, payment details, browser print/PDF, local draft saving, and reusable preset layouts.
 - Later improvement: add invoice templates and recurring invoice presets.
 
 ### Phase 4: Writing Tools
@@ -135,7 +135,7 @@ $env:BASE_PATH='/everyday-tools/'; npm run build
 3. Completed CSS Gradient Builder with linear/radial modes, color stops, live preview, and copyable CSS.
 4. Completed Favicon Generator with uploaded image input, common PNG favicon/app-icon sizes, previews, and downloads.
 5. Completed PDF Page Reorderer with range-based reorder, reverse, duplicate, remove, output naming, and local download.
-6. Completed Document Metadata Cleaner with local file inspection, metadata hint detection, image re-encoding, and cleaned image download.
+6. Completed Document Metadata Cleaner with local file inspection, searchable EXIF/IPTC/XMP metadata review, image re-encoding, and cleaned image download.
 7. Completed Word Counter Plus with word, sentence, paragraph, character, readability, keyword frequency, and reading-time stats.
 8. Completed Meeting Notes Formatter with agenda, decisions, actions, risks, follow-ups, copy, and download.
 9. Completed Email Subject Line Tester with length, mobile preview, tone hints, scoring, and copy summary.
@@ -213,31 +213,96 @@ $env:BASE_PATH='/everyday-tools/'; npm run build
 
 ### Phase 15: Tool Enhancements
 
-- Tone Rewriter — replace static template substitution with real input analysis: detect sentence length, passive constructions, hedging words, filler phrases, and formality level from the pasted text, then apply targeted rewrites per tone rather than applying a fixed template regardless of what was typed. Each output should be meaningfully different from the input and reflect the actual content.
-- Resume Helper — add content analysis alongside template guidance: flag weak action verbs, passive constructions, missing quantification opportunities, and overly long bullets so the user can act on specific suggestions.
-- Text Diff Checker — add word-level diff mode alongside the existing line-level view so small edits inside a line are visible without the whole line being flagged.
-- Regex Tester — add replace mode: let the user supply a replacement string and preview the substituted output alongside the existing match view.
-- CSV Cleaner — add column statistics after parsing: inferred type, null count, unique count, min, and max per column shown in the preview header.
-- Password Generator — add passphrase mode: generate Diceware-style word combinations as a memorable alternative to random character strings.
-- Image Resizer — add batch mode: upload multiple images and download a ZIP of resized outputs with shared settings.
-- PDF Tools — add an optional compression/re-encoding step after merge or split so the output file size can be reduced before download.
-- Color Format Converter (Phase 12) — wire it into Color Contrast Checker so converted color values can be sent directly to the contrast check without copy-pasting.
-- JSON Formatter — add a JSONPath expression field so users can filter or extract values from the formatted output inline.
+- Completed Text Diff Checker enhancement: word-level diff mode now sits alongside the existing line-level view so small edits inside a line are visible without the whole line being flagged.
+- Completed Regex Tester enhancement: replace mode now accepts a replacement string and previews substituted output alongside the existing match workflow.
+- Completed CSV Cleaner enhancement: column statistics now show inferred type, null count, unique count, min, and max for each parsed field.
+- Completed Password Generator enhancement: passphrase mode now generates Diceware-style word combinations as a memorable alternative to random character strings.
+- Completed Image Resizer enhancement: batch mode now processes multiple images with shared settings and downloads the results as a ZIP archive.
+- Completed PDF Tools enhancement: merge and split flows now offer an optional compression/re-encoding step to reduce file size before download.
+- Completed Color Format Converter enhancement: converted colors can now be sent directly into Color Contrast Checker without copy-pasting.
+- Completed Tone Rewriter enhancement: rewrites now respond to sentence length, passive phrasing, filler language, and detected formality instead of only using fixed template substitution.
+- Completed Resume Helper enhancement: achievement analysis now flags weak action verbs, passive phrasing, missing quantification opportunities, and overly long bullets.
+- Completed JSON Formatter enhancement: a JSONPath field now filters or extracts values from parsed JSON inline.
 
 ### Phase 16: Library-Backed Tool Upgrades
 
 Each item below replaces hand-rolled logic or a limited browser API with a focused npm library. All libraries run entirely in the browser — no server calls. Install only when implementing the upgrade for a given tool; do not batch-install upfront.
 
-1. **Text Diff Checker** → install `diff` (jsdiff): replace the hand-rolled line comparison with the `diff` library to unlock word-level and character-level diff modes, unified-format output, and configurable context lines. Aligns with the Phase 15 word-level diff enhancement.
-2. **SVG Optimizer** → install `svgo`: replace the current metadata-strip-and-sanitize approach with real SVGO optimization passes (remove redundant attributes, merge transforms, collapse groups, optimize path data, remove comments and doctype). Show a before/after byte-size reduction.
-3. **Document Metadata Cleaner** → install `exifr`: replace hint-based detection with actual EXIF/IPTC/XMP extraction from JPEG, TIFF, PNG, and HEIC files locally. Display GPS coordinates, camera make/model, date taken, software, copyright, and all raw tags in a searchable table.
-4. **Markdown Previewer** → install `highlight.js` (language auto-detect, tree-shakeable): wire it into the `marked` renderer so fenced code blocks get full syntax highlighting. Register only the most common languages (js, ts, python, bash, sql, json, css, html, yaml, go, rust) to keep the chunk small.
-5. **Image Cropper** → install `cropperjs`: replace the manual coordinate-input approach with an interactive drag-to-crop canvas UI including handles, zoom, rotation, and aspect-ratio lock. Dramatically better UX for cropping photos and screenshots.
-6. **Semver Helper** → install `semver`: replace the hand-rolled version parser with the canonical `semver` package to add range parsing (`^1.0.0`, `~1.2.x`, `>=1.0.0 <2.0.0`), `satisfies` checks, `maxSatisfying`, `validRange`, and full pre-release spec compliance.
-7. **SSL Certificate Decoder** → install `node-forge`: replace the basic PEM inspection with full X.509 parsing — extract Subject Alternative Names, issuer chain, key usage extensions, signature algorithm, public key size, and all extensions in a readable table.
-8. **Hash Generator** → install `spark-md5` and `crc-32`: add MD5 (still widely used for checksums and legacy compatibility) and CRC32 to the existing SHA-1/256/384/512 outputs. Web Crypto does not support either algorithm.
-9. **Date Difference Calculator** → install `date-fns`: replace the manual business-day loop with `date-fns` `differenceInBusinessDays` and related helpers for accurate weekday-only counts, and use its formatting utilities for the copy summary output.
-10. **Image Resizer** → install `browser-image-compression`: add a quality-preserving compression mode alongside the existing canvas resize, producing significantly smaller files than the canvas `toBlob` quality parameter alone. Also install `jszip` to power the Phase 15 batch-download feature.
+1. **Completed Text Diff Checker** → installed `diff` (jsdiff) to replace the hand-rolled line comparison and unlock word-level diff mode with unified-style output generation.
+2. **Completed SVG Optimizer** → installed `svgo` to replace the metadata-strip-only flow with real SVG optimization passes and before/after byte savings.
+3. **Completed Document Metadata Cleaner** → installed `exifr` to extract EXIF, IPTC, and XMP fields locally and present them in a searchable metadata table before optional image cleanup.
+4. **Completed Markdown Previewer** → installed `highlight.js` and wired it into `marked` so fenced code blocks now render with syntax highlighting for common languages.
+5. **Completed Image Cropper** → installed `cropperjs` to replace manual coordinates with an interactive crop box, zoom controls, rotation, and aspect-ratio presets.
+6. **Completed Semver Helper** → installed `semver` to add canonical parsing, prerelease-aware comparison, range validation, `satisfies`, and max/min matching helpers.
+7. **Completed SSL Certificate Decoder** → installed `node-forge` to parse X.509 subject, issuer, SANs, key usage, signature algorithm, public key size, fingerprints, and extension details locally.
+8. **Completed Hash Generator** → installed `spark-md5` and `crc-32` to add MD5 and CRC32 alongside the existing SHA outputs for text and file hashing.
+9. **Completed Date Difference Calculator** → installed `date-fns` to replace manual business-day logic with canonical date helpers and cleaner formatted summary output.
+10. **Completed Image Resizer** → installed `browser-image-compression` to add a smart compression path alongside the existing canvas resize flow, while keeping ZIP batch downloads in place.
+
+### Phase 17: Document And Media Refinement
+
+1. **Completed Image Resizer** → expanded the `browser-image-compression` upgrade with a photo-tuned compression mode and before/after size comparisons for each processed file.
+2. **Completed PDF Tools** → added page thumbnail previews for merge and split flows so file order and selected pages are visible before download.
+3. **Completed PDF Tools** → added a "preserve text when possible" compression option that keeps text-preserving output unless raster re-encoding is meaningfully smaller.
+4. **Completed CSV Cleaner** → added duplicate-row detection panels that group repeated rows, show repeat counts, and explain how many rows were removed from the cleaned output.
+5. **Completed Document Metadata Cleaner** → added file-type-specific detail panels that summarize format profile, cleanup coverage, and image/document/media-specific metadata hints before download.
+6. **Completed Invoice Generator** → added browser-local invoice template presets with built-in layouts, accent variations, and reusable saved defaults for repeat invoices.
+
+### Phase 18: Developer Workflow Power-Ups
+
+1. **Completed JSON Formatter** → installed `jsonpath-plus` to replace the lightweight extractor with filtered arrays, nested wildcard paths, and match counts beside the extracted output.
+2. **Completed Regex Tester** → added saved browser-local snippet presets so commonly used patterns, flags, and replacements can be reused quickly.
+3. **Completed HTTP Request Snippet Builder** → installed `parse-curl` so pasted `curl` commands can be imported into the builder and round-tripped between formats more reliably.
+4. **Completed SQL Formatter** → reused the installed `diff` package to add a line-by-line change preview between original and formatted SQL so normalization changes are easier to review.
+5. **Completed JSON Diff** → installed `jsondiffpatch` to add grouped path navigation, richer array/object change metadata, and search for larger object diffs.
+6. **Completed Env File Parser** → installed `dotenv` to improve parsing of quoted values, escapes, comments, and multiline edge cases, then added likely-secret masking in the preview.
+7. **Completed Changelog Formatter** → installed `linkify-it` so URLs auto-link in the rendered preview, and `#issue` numbers and short commit hashes link directly into the repo when an optional repo URL is provided.
+
+### Phase 19: Writing And Business Quality Pass
+
+1. **Completed Resume Helper** → added per-bullet rewrite suggestions with a STRONG_VERB_MAP that replaces weak verbs (helped, worked, responsible for, etc.) with stronger alternatives and flags missing metrics alongside the existing issue analysis.
+2. **Completed Tone Rewriter** → added sentence-by-sentence compare view with a `tone-compare` panel showing original vs rewritten per sentence, what changed (removed softeners, passive→active, word count), and a context note describing the selected tone.
+3. **Completed Proofreading Checklist** → installed `n-gram` to add repeated phrase detection (bigrams and trigrams) across paragraphs, with stop-word filtering so only meaningful repeated phrases surface.
+4. **Completed Invoice Generator** → added browser-local client profiles (save, load, delete) and a line-item library (save any line item for reuse, add from library to invoice) using separate localStorage keys.
+5. **Completed Quote Generator** → added reusable quote templates (save/apply/delete; stores notes, validity, discount, tax) and a saved line-item library shared across quotes, using the same browser-local preset model as invoices.
+6. **Completed Time Tracker** → reused `date-fns` helpers to add manual session entry (date + start/end time with validation) and inline session editing so missed timers can be corrected without exporting first.
+7. **Completed Budget Planner** → added a recurring items panel (separate localStorage key) that auto-seeds any new month with saved income/expense templates; manual "Apply to this month" button available for existing months.
+
+### Phase 20: Release And Publishing Polish
+
+1. **Completed axe-core** → installed `@axe-core/react` as a devDep and wired it into `main.jsx` behind `import.meta.env.DEV` so violations are logged to the browser console during development. Fixed `aria-label` on all icon-only delete buttons in Budget Planner, Time Tracker, and the What's New modal close button.
+2. **Completed smoke-test notes** → added a release smoke-test checklist to the README below this roadmap.
+3. **Completed rollup-plugin-visualizer** → installed as devDep and wired into `vite.config.js` behind `ANALYZE=1` env flag; run `ANALYZE=1 npm run build` to open `dist/stats.html` with gzip/brotli breakdown per chunk.
+4. **Completed tool updated badges** → added `updated: true` field to 8 tools enhanced in Phases 18–19; ToolCard renders a small accent dot on the icon for any tool with that field set.
+5. **Completed mobile layout review** → added `.tone-tool`, `.svg-tool`, `.favicon-tool`, `.pdf-reorder-tool`, `.cropper-tool`, `.metadata-tool`, and `.gradient-tool` to the 900 px single-column breakpoint (they were missing); collapsed `.tt-manual-row` to 2-col at 900 px and 1-col at 560 px; hid What's New version/date on 560 px screens.
+
+### Phase 21: Dependency And UX Refinements
+
+Notes from a post-Phase-18 review. None of the items below are blocking, but each addresses a known limitation or a better-fit library.
+
+1. **Completed PDF Tools** → Added a visible warning when "Smaller file" or "Smart" compression is applied: the inline compression hint now uses a stronger orange callout style (`pdf-raster-notice`) with explicit text that the output will be raster-only and text will not be selectable or searchable. A post-download confirmation banner also appears after any raster operation.
+2. **Resolved HTTP Request Snippet Builder** → Evaluated replacing `parse-curl` with `curlconverter`. Decision: keep `parse-curl`. `curlconverter` is a code-generation library (outputs Python, fetch, etc.) with a different API surface, not a curl parser. The existing `parse-curl` covers the primary use case of importing URL, method, headers, and body into the builder. If multipart/proxy/auth edge cases become a frequent complaint, revisit with a purpose-built curl parser instead.
+3. **Resolved Env File Parser** → `dotenv` is kept as-is. It bundles correctly under Vite and handles quoted values, escapes, and multiline blocks reliably. Lighter alternatives like `envfile` lack the same edge case coverage. No action required.
+
+### Phase 22: Tool Intelligence And Precision
+
+Full audit of all tools in the app surfaced several targeted improvements that require no new heavy dependencies. Each item below sharpens an existing tool with either a better algorithm or a new display mode.
+
+1. **Completed Password Generator** → Replaced the heuristic score (character-set count + length thresholds) with information-theoretic entropy: `bits = length × log₂(pool_size)`. Strength thresholds are 40/60/80 bits. The detail label now shows the exact bit count (e.g. "87 bits entropy") instead of a character-set count.
+2. **Completed Word Counter Plus** → Added a Flesch-Kincaid grade label alongside the raw readability score. Seven bands: Very Easy (90+), Easy (80–89), Fairly Easy (70–79), Standard (60–69), Fairly Difficult (50–59), Difficult (30–49), Very Confusing (< 30). Label appears below the score as a small caption.
+3. **Completed Text Diff Checker** → Added a third **Char** mode alongside Line and Word. Uses `diffChars` from the already-installed `diff` library. Stats show added/removed/unchanged character counts. Download filename is `text-diff-char.diff`.
+4. **Completed QR Code Generator** → Added SVG output alongside the existing PNG mode. A format toggle (PNG / SVG) switches the generator between `QRCode.toDataURL` and `QRCode.toString({ type: 'svg' })`. The preview renders via a data URI; download produces a `.svg` file. SVG output is vector-sharp at any size and has a smaller file footprint than PNG.
+5. **Completed Regex Tester** → Named capture groups (e.g. `(?<year>\d{4})`) are now displayed as labelled badges below each match rather than merged into the raw group list. The pattern is parsed for group names via `(?<name>)` detection. A "named" count appears in the stats bar when the pattern contains named groups.
+6. **Future CSV Cleaner** → Excel `.xlsx`/`.xls` import and export via the `xlsx` library. Deferred: `xlsx` adds ~600 KB to the chunk. Revisit if CSV+Excel round-tripping becomes a top request.
+7. **Future Expense Tracker / Budget Planner** → SVG mini-charts (sparklines and category bars) with no new dependency. Deferred to a dedicated UX pass.
+8. **Future Settings Backup / Restore** → Export all tool localStorage keys as a single JSON archive, import to restore. No new dependency. Deferred to a settings management phase.
+
+### Phase 23: Drag-And-Drop File Import
+
+Added drag-and-drop support to every tool that accepts a file import. Files can now be dropped onto the upload area instead of using the file picker button.
+
+1. **Completed upload-box tools** → Hash Generator, Image Cropper, Document Metadata Cleaner, PDF Page Reorderer, Favicon Generator, Base64 Encoder, Image Resizer. Each tool's `upload-box` label now accepts drops and highlights with the accent blue on hover. Hint text updated to "Choose or drop a file".
+2. **Completed toolbar-import tools** → JSON Formatter (drop `.json` onto tool body), CSV Cleaner (drop `.csv` onto tool body), HTTP Request Builder (drop `.txt`/`.sh` onto the Import curl panel), JSON ↔ CSV Converter (drop `.json`/`.csv` onto the input panel), Invoice Generator (drop image onto the Branding & Payment section to set the logo). Container-level drop zones show a dashed accent outline while dragging over them.
 
 ## Acceptance Checklist
 
@@ -249,6 +314,42 @@ Each item below replaces hand-rolled logic or a limited browser API with a focus
 - No account, login, signup, OAuth, or backend setup is required.
 - Uploaded files remain local.
 - Favorite tools and default tool settings work locally in the browser.
+
+## Release Smoke Tests
+
+Completed 2026-05-27. All items below verified passing. Run again before each future publish.
+
+### PDF Tools
+
+- [x] Upload a multi-page PDF → merge, compress, and split actions each produce a downloadable result
+- [x] "Smaller file" compression shows the orange raster-only warning banner
+- [x] PDF worker loads without console errors (check Network tab for `pdf.worker` chunk)
+
+### Image Resizer
+
+- [x] Upload a JPG and a PNG → resize by pixel and by percentage, download both formats
+- [x] Crop tool opens, selection drag works, output downloads correctly
+
+### SQL Formatter
+
+- [x] Paste a complex multi-table query → format, minify, copy each work without errors
+- [x] Syntax highlighting renders on the output panel
+
+### Markdown Previewer
+
+- [x] Paste markdown with code fences, tables, and links → preview renders correctly
+- [x] Export to HTML and copy both work
+
+### SVG Optimizer
+
+- [x] Upload an SVG → optimized output downloads and is valid SVG
+- [x] SVGO options panel opens and changes affect output size
+
+### File tools (general)
+
+- [x] All file-upload tools show an appropriate error state for wrong file types
+- [x] No tool stores uploaded file content in `localStorage` (verify in DevTools → Application)
+- [x] All file-import tools support drag-and-drop (Hash Generator, Image tools, PDF tools, Base64, CSV, JSON, HTTP curl import, Invoice logo)
 
 ## Project Shape
 

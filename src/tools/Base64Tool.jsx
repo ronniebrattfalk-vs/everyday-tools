@@ -34,6 +34,7 @@ export function Base64Tool() {
   const [fileBase64, setFileBase64] = useState('')
   const [decodeFileName, setDecodeFileName] = useState('decoded-file.txt')
   const [message, setMessage] = useState('')
+  const [isDragging, setIsDragging] = useState(false)
 
   const textResult = useMemo(() => {
     try {
@@ -154,9 +155,14 @@ export function Base64Tool() {
           <h3>Small file conversion</h3>
         </div>
 
-        <label className="upload-box">
+        <label
+          className={`upload-box ${isDragging ? 'is-dragging' : ''}`}
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(e) => { e.preventDefault(); setIsDragging(false); encodeFile(e.dataTransfer.files?.[0]) }}
+        >
           <FileUp size={30} aria-hidden="true" />
-          <span>{fileName || 'Choose a file to encode'}</span>
+          <span>{fileName || 'Choose or drop a file to encode'}</span>
           <small>Creates a Base64 text output locally.</small>
           <input type="file" onChange={(event) => encodeFile(event.target.files?.[0])} />
         </label>

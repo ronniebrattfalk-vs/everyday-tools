@@ -1,8 +1,23 @@
 import { useMemo, useState } from 'react'
 import { Clipboard, Pipette, RotateCcw } from 'lucide-react'
 
+const contrastTransferKey = 'everyday-tools:contrast-transfer'
+
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value))
+}
+
+function consumeContrastTransfer() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(contrastTransferKey) || '{}')
+    localStorage.removeItem(contrastTransferKey)
+    return {
+      foreground: typeof parsed.foreground === 'string' ? parsed.foreground : '#1742a5',
+      background: typeof parsed.background === 'string' ? parsed.background : '#ffffff',
+    }
+  } catch {
+    return { foreground: '#1742a5', background: '#ffffff' }
+  }
 }
 
 function hexToRgb(hex) {
@@ -108,8 +123,9 @@ function generatePalette(baseHex) {
 }
 
 export function ColorContrastTool() {
-  const [foreground, setForeground] = useState('#1742a5')
-  const [background, setBackground] = useState('#ffffff')
+  const [initialTransfer] = useState(() => consumeContrastTransfer())
+  const [foreground, setForeground] = useState(initialTransfer.foreground)
+  const [background, setBackground] = useState(initialTransfer.background)
   const [message, setMessage] = useState('')
 
   const ratio = useMemo(() => contrastRatio(foreground, background), [background, foreground])

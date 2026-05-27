@@ -15,7 +15,6 @@ function makeGrid(rows, cols) {
 function buildMarkdown(grid) {
   if (!grid.length) return ''
   const cols = grid[0].length
-  const pad = (cell) => ` ${cell} `
   const colWidths = Array.from({ length: cols }, (_, c) =>
     Math.max(3, ...grid.map((row) => (row[c] ?? '').length + 2))
   )
@@ -29,7 +28,6 @@ function buildMarkdown(grid) {
   const body = grid.slice(1).map(formatRow)
 
   return [header, divider, ...body].join('\n')
-  void pad
 }
 
 export function MarkdownTableBuilder() {

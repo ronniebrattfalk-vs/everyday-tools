@@ -13,18 +13,102 @@ function normalizeRow(row) {
   return Object.fromEntries(Object.entries(row).map(([key, value]) => [key.trim(), String(value ?? '').trim()]))
 }
 
-function removeDuplicateRows(rows) {
+function isEmptyRow(row) {
+  return Object.values(row).every((value) => !String(value ?? '').trim())
+}
+
+function inferType(values) {
+  if (!values.length) return 'empty'
+  if (values.every((value) => /^-?\d+(?:\.\d+)?$/.test(value))) return 'number'
+  if (values.every((value) => /^(true|false)$/i.test(value))) return 'boolean'
+  if (values.every((value) => !Number.isNaN(Date.parse(value)))) return 'date'
+  return 'text'
+}
+
+function buildColumnStats(rows, fields) {
+  return fields.map((field) => {
+    const rawValues = rows.map((row) => String(row[field] ?? ''))
+    const nonEmptyValues = rawValues.filter((value) => value.trim())
+    const type = inferType(nonEmptyValues)
+    const uniqueCount = new Set(nonEmptyValues).size
+    const nullCount = rawValues.length - nonEmptyValues.length
+
+    let min = '—'
+    let max = '—'
+
+    if (nonEmptyValues.length) {
+      if (type === 'number') {
+        const numbers = nonEmptyValues.map(Number)
+        min = String(Math.min(...numbers))
+        max = String(Math.max(...numbers))
+      } else if (type === 'date') {
+        const timestamps = nonEmptyValues.map((value) => ({ value, time: Date.parse(value) })).sort((a, b) => a.time - b.time)
+        min = timestamps[0].value
+        max = timestamps.at(-1).value
+      } else {
+        const sorted = [...nonEmptyValues].sort((first, second) => first.localeCompare(second))
+        min = sorted[0]
+        max = sorted.at(-1)
+      }
+    }
+
+    return {
+      field,
+      type,
+      nullCount,
+      uniqueCount,
+      min,
+      max,
+    }
+  })
+}
+
+function buildRowSignature(row, fields) {
+  if (!fields.length) return JSON.stringify(row)
+  return JSON.stringify(fields.map((field) => [field, row[field] ?? '']))
+}
+
+function buildDuplicateAnalysis(rows, fields) {
+  const groups = new Map()
+
+  rows.forEach((row, index) => {
+    const signature = buildRowSignature(row, fields)
+    const current = groups.get(signature)
+
+    if (current) {
+      current.count += 1
+      current.indices.push(index)
+    } else {
+      groups.set(signature, { signature, count: 1, indices: [index], sample: row })
+    }
+  })
+
+  const duplicateGroups = [...groups.values()]
+    .filter((group) => group.count > 1)
+    .sort((first, second) => second.count - first.count)
+
+  return {
+    duplicateGroups,
+    duplicateSignatures: new Set(duplicateGroups.map((group) => group.signature)),
+    duplicateRowCount: duplicateGroups.reduce((sum, group) => sum + group.count, 0),
+    removedCount: duplicateGroups.reduce((sum, group) => sum + group.count - 1, 0),
+  }
+}
+
+function removeDuplicateRows(rows, fields) {
   const seen = new Set()
   return rows.filter((row) => {
-    const key = JSON.stringify(row)
+    const key = buildRowSignature(row, fields)
     if (seen.has(key)) return false
     seen.add(key)
     return true
   })
 }
 
-function isEmptyRow(row) {
-  return Object.values(row).every((value) => !String(value ?? '').trim())
+function summarizeRow(row, fields) {
+  return fields
+    .map((field) => `${field}: ${row[field] || '—'}`)
+    .join(' | ')
 }
 
 export function CSVCleaner() {
@@ -35,6 +119,7 @@ export function CSVCleaner() {
   const [dropDuplicates, setDropDuplicates] = useState(true)
   const [outputFormat, setOutputFormat] = useState('csv')
   const [message, setMessage] = useState('')
+  const [isDragging, setIsDragging] = useState(false)
 
   const parsed = useMemo(
     () =>
@@ -47,19 +132,27 @@ export function CSVCleaner() {
     [delimiter, input, trimCells],
   )
 
-  const cleanedRows = useMemo(() => {
+  const preparedRows = useMemo(() => {
     let rows = parsed.data.filter((row) => row && typeof row === 'object')
     if (trimCells) rows = rows.map(normalizeRow)
     if (dropEmptyRows) rows = rows.filter((row) => !isEmptyRow(row))
-    if (dropDuplicates) rows = removeDuplicateRows(rows)
     return rows
-  }, [dropDuplicates, dropEmptyRows, parsed.data, trimCells])
+  }, [dropEmptyRows, parsed.data, trimCells])
 
   const fields = useMemo(() => {
     const headerFields = parsed.meta.fields || []
-    const rowFields = cleanedRows.flatMap((row) => Object.keys(row))
+    const rowFields = preparedRows.flatMap((row) => Object.keys(row))
     return Array.from(new Set([...headerFields, ...rowFields])).filter(Boolean)
-  }, [cleanedRows, parsed.meta.fields])
+  }, [preparedRows, parsed.meta.fields])
+
+  const duplicateAnalysis = useMemo(() => buildDuplicateAnalysis(preparedRows, fields), [fields, preparedRows])
+
+  const cleanedRows = useMemo(() => {
+    if (!dropDuplicates) return preparedRows
+    return removeDuplicateRows(preparedRows, fields)
+  }, [dropDuplicates, fields, preparedRows])
+
+  const columnStats = useMemo(() => buildColumnStats(cleanedRows, fields), [cleanedRows, fields])
 
   const output = useMemo(() => {
     if (outputFormat === 'json') return JSON.stringify(cleanedRows, null, 2)
@@ -103,11 +196,17 @@ export function CSVCleaner() {
   }
 
   return (
-    <div className="tool-body csv-tool">
+    <div
+      className={`tool-body csv-tool${isDragging ? ' is-dragging' : ''}`}
+      onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setIsDragging(false) }}
+      onDrop={(e) => { e.preventDefault(); setIsDragging(false); loadFile(e.dataTransfer.files?.[0]) }}
+    >
       <div className="csv-toolbar">
         <div className="diff-stats" aria-live="polite">
           <span>{cleanedRows.length} rows</span>
           <span>{fields.length} columns</span>
+          <span>{duplicateAnalysis.duplicateGroups.length} duplicate groups</span>
           <span>{parseErrors.length} issues</span>
         </div>
         <div className="button-row">
@@ -181,6 +280,56 @@ export function CSVCleaner() {
             <h3>Preview</h3>
             <span className="json-stat">{message || (parseErrors[0]?.message ?? 'Cleaned locally')}</span>
           </div>
+
+          {!!columnStats.length && (
+            <div className="csv-stats-grid" aria-label="Column statistics">
+              {columnStats.map((stat) => (
+                <article key={stat.field} className="csv-stat-card">
+                  <strong>{stat.field}</strong>
+                  <span>Type: {stat.type}</span>
+                  <span>Nulls: {stat.nullCount}</span>
+                  <span>Unique: {stat.uniqueCount}</span>
+                  <span>Min: {stat.min}</span>
+                  <span>Max: {stat.max}</span>
+                </article>
+              ))}
+            </div>
+          )}
+
+          <section className="csv-duplicate-panel" aria-label="Duplicate row detection">
+            <div className="section-title-row">
+              <h3>Duplicate review</h3>
+              <span className="json-stat">
+                {duplicateAnalysis.duplicateGroups.length
+                  ? `${duplicateAnalysis.duplicateRowCount} rows in ${duplicateAnalysis.duplicateGroups.length} repeated groups`
+                  : 'No duplicate rows detected'}
+              </span>
+            </div>
+            {duplicateAnalysis.duplicateGroups.length ? (
+              <>
+                <p className="helper-text">
+                  {dropDuplicates
+                    ? `${duplicateAnalysis.removedCount} repeated rows are excluded from the cleaned output.`
+                    : 'Duplicate rows are still included in the preview because removal is off.'}
+                </p>
+                <div className="csv-duplicate-list">
+                  {duplicateAnalysis.duplicateGroups.slice(0, 8).map((group, index) => (
+                    <article key={group.signature} className="csv-duplicate-card">
+                      <strong>Group {index + 1}</strong>
+                      <span>{group.count} matching rows</span>
+                      <p>{summarizeRow(group.sample, fields)}</p>
+                    </article>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="empty-state csv-empty">
+                <FileSpreadsheet size={28} aria-hidden="true" />
+                <p>This dataset has no repeated rows after the current cleanup options.</p>
+              </div>
+            )}
+          </section>
+
           <div className="csv-table-wrap">
             <table className="csv-preview-table">
               <thead>
@@ -191,13 +340,18 @@ export function CSVCleaner() {
                 </tr>
               </thead>
               <tbody>
-                {cleanedRows.slice(0, 50).map((row, rowIndex) => (
-                  <tr key={`${rowIndex}-${JSON.stringify(row)}`}>
-                    {fields.map((field) => (
-                      <td key={field}>{row[field]}</td>
-                    ))}
-                  </tr>
-                ))}
+                {cleanedRows.slice(0, 50).map((row, rowIndex) => {
+                  const signature = buildRowSignature(row, fields)
+                  const isDuplicatePreview = duplicateAnalysis.duplicateSignatures.has(signature)
+
+                  return (
+                    <tr key={`${rowIndex}-${signature}`} className={isDuplicatePreview && !dropDuplicates ? 'csv-row-duplicate' : ''}>
+                      {fields.map((field) => (
+                        <td key={field}>{row[field]}</td>
+                      ))}
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
             {!cleanedRows.length && (

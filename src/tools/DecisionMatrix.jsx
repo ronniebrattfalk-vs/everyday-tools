@@ -42,7 +42,7 @@ export function DecisionMatrix() {
     const totalWeight = criteria.reduce((s, c) => s + c.weight, 0)
     if (!totalWeight) return options.map(() => 0)
     return options.map(o =>
-      criteria.reduce((s, c) => s + score(c.id, o.id) * c.weight, 0) / totalWeight
+      criteria.reduce((s, c) => s + (scores[`${c.id}-${o.id}`] ?? 5) * c.weight, 0) / totalWeight
     )
   }, [options, criteria, scores])
 

@@ -30,7 +30,7 @@ function loadExpenses() {
 }
 
 function saveExpenses(expenses) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(expenses)) } catch {}
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(expenses)) } catch { /* Ignore storage write errors. */ }
 }
 
 function today() { return new Date().toISOString().slice(0, 10) }

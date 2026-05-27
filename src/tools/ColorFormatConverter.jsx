@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Clipboard } from 'lucide-react'
 
+const contrastTransferKey = 'everyday-tools:contrast-transfer'
+
 function hexToRgb(hex) {
   const h = hex.replace('#', '')
   const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h
@@ -8,7 +10,7 @@ function hexToRgb(hex) {
   const r = parseInt(full.slice(0, 2), 16)
   const g = parseInt(full.slice(2, 4), 16)
   const b = parseInt(full.slice(4, 6), 16)
-  return isNaN(r) || isNaN(g) || isNaN(b) ? null : { r, g, b }
+  return Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b) ? null : { r, g, b }
 }
 
 function rgbToHex({ r, g, b }) {
@@ -16,8 +18,11 @@ function rgbToHex({ r, g, b }) {
 }
 
 function rgbToHsl({ r, g, b }) {
-  const rn = r / 255, gn = g / 255, bn = b / 255
-  const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn)
+  const rn = r / 255
+  const gn = g / 255
+  const bn = b / 255
+  const max = Math.max(rn, gn, bn)
+  const min = Math.min(rn, gn, bn)
   const l = (max + min) / 2
   if (max === min) return { h: 0, s: 0, l: Math.round(l * 100) }
   const d = max - min
@@ -32,17 +37,20 @@ function rgbToHsl({ r, g, b }) {
 }
 
 function hslToRgb(h, s, l) {
-  const sn = s / 100, ln = l / 100
+  const sn = s / 100
+  const ln = l / 100
   const c = (1 - Math.abs(2 * ln - 1)) * sn
   const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
   const m = ln - c / 2
-  let r = 0, g = 0, b = 0
-  if (h < 60)       { r = c; g = x }
+  let r = 0
+  let g = 0
+  let b = 0
+  if (h < 60) { r = c; g = x }
   else if (h < 120) { r = x; g = c }
   else if (h < 180) { g = c; b = x }
   else if (h < 240) { g = x; b = c }
   else if (h < 300) { r = x; b = c }
-  else              { r = c; b = x }
+  else { r = c; b = x }
   return {
     r: Math.round((r + m) * 255),
     g: Math.round((g + m) * 255),
@@ -52,7 +60,9 @@ function hslToRgb(h, s, l) {
 
 function rgbToOklch({ r, g, b }) {
   const lin = (c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4))
-  const lr = lin(r / 255), lg = lin(g / 255), lb = lin(b / 255)
+  const lr = lin(r / 255)
+  const lg = lin(g / 255)
+  const lb = lin(b / 255)
   const lms_l = Math.cbrt(0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb)
   const lms_m = Math.cbrt(0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb)
   const lms_s = Math.cbrt(0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb)
@@ -77,14 +87,27 @@ function parseInput(raw) {
 
   const rgbMatch = str.match(/^rgba?\(\s*(\d+)[,\s]\s*(\d+)[,\s]\s*(\d+)/)
   if (rgbMatch) {
-    const r = parseInt(rgbMatch[1]), g = parseInt(rgbMatch[2]), b = parseInt(rgbMatch[3])
+    const r = parseInt(rgbMatch[1], 10)
+    const g = parseInt(rgbMatch[2], 10)
+    const b = parseInt(rgbMatch[3], 10)
     if (r <= 255 && g <= 255 && b <= 255) return { r, g, b }
   }
 
   const hslMatch = str.match(/^hsla?\(\s*(\d+)[,\s]\s*(\d+)%?[,\s]\s*(\d+)%?/)
-  if (hslMatch) return hslToRgb(parseInt(hslMatch[1]), parseInt(hslMatch[2]), parseInt(hslMatch[3]))
+  if (hslMatch) return hslToRgb(parseInt(hslMatch[1], 10), parseInt(hslMatch[2], 10), parseInt(hslMatch[3], 10))
 
   return null
+}
+
+function sendToContrast(target, value) {
+  const current = (() => {
+    try {
+      return JSON.parse(localStorage.getItem(contrastTransferKey) || '{}')
+    } catch {
+      return {}
+    }
+  })()
+  localStorage.setItem(contrastTransferKey, JSON.stringify({ ...current, [target]: value }))
 }
 
 export function ColorFormatConverter() {
@@ -92,7 +115,6 @@ export function ColorFormatConverter() {
   const [message, setMessage] = useState('')
 
   const rgb = useMemo(() => parseInput(input), [input])
-
   const hex = useMemo(() => (rgb ? rgbToHex(rgb) : '#000000'), [rgb])
 
   const formats = useMemo(() => {
@@ -112,6 +134,13 @@ export function ColorFormatConverter() {
   async function copy(value, label) {
     await navigator.clipboard.writeText(value)
     setMessage(`${label} copied`)
+    setTimeout(() => setMessage(''), 1500)
+  }
+
+  function queueContrastTransfer(target) {
+    if (!rgb) return
+    sendToContrast(target, rgbToHex(rgb))
+    setMessage(`Color sent to Contrast Checker as ${target}`)
     setTimeout(() => setMessage(''), 1500)
   }
 
@@ -148,11 +177,21 @@ export function ColorFormatConverter() {
         )}
 
         {rgb && (
-          <div
-            className="color-format-preview"
-            style={{ background: `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})` }}
-            aria-hidden="true"
-          />
+          <>
+            <div
+              className="color-format-preview"
+              style={{ background: `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})` }}
+              aria-hidden="true"
+            />
+            <div className="button-row">
+              <button type="button" className="secondary-button" onClick={() => queueContrastTransfer('foreground')}>
+                Send to contrast foreground
+              </button>
+              <button type="button" className="secondary-button" onClick={() => queueContrastTransfer('background')}>
+                Send to contrast background
+              </button>
+            </div>
+          </>
         )}
 
         <p className="helper-text">

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { JSONPath } from 'jsonpath-plus'
 import {
   ArrowDownAZ,
   Clipboard,
@@ -16,7 +17,11 @@ import {
 const sampleJson = `{
   "site": "Everyday Tools",
   "privacy": true,
-  "tools": ["QR Code", "Password", "Unit Converter"]
+  "tools": [
+    { "name": "QR Code", "category": "Everyday", "live": true },
+    { "name": "Password", "category": "Security", "live": true },
+    { "name": "Diff Checker", "category": "Developer", "live": false }
+  ]
 }`
 
 function getErrorLocation(value, message) {
@@ -102,26 +107,71 @@ function highlightJson(value) {
   return parts
 }
 
+function applyJsonPath(data, path) {
+  const trimmed = path.trim()
+  if (!trimmed) {
+    return { value: data, error: '', count: 1 }
+  }
+
+  try {
+    const result = JSONPath({
+      path: trimmed.startsWith('$') ? trimmed : `$.${trimmed.replace(/^\./, '')}`,
+      json: data,
+      wrap: true,
+      resultType: 'value',
+    })
+
+    if (!result.length) {
+      return { value: null, error: 'No results for this JSONPath query', count: 0 }
+    }
+
+    return {
+      value: result.length === 1 ? result[0] : result,
+      error: '',
+      count: result.length,
+    }
+  } catch (error) {
+    return {
+      value: null,
+      error: error.message || 'Could not apply JSONPath query',
+      count: 0,
+    }
+  }
+}
+
 export function JSONFormatter() {
   const [input, setInput] = useState(sampleJson)
   const [output, setOutput] = useState(() => JSON.stringify(JSON.parse(sampleJson), null, 2))
   const [outputView, setOutputView] = useState('highlighted')
   const [searchTerm, setSearchTerm] = useState('')
+  const [jsonPath, setJsonPath] = useState('$.tools[?(@.live === true)].name')
   const [message, setMessage] = useState('')
+  const [isDragging, setIsDragging] = useState(false)
 
   const parsed = useMemo(() => parseJson(input), [input])
   const isValid = !parsed.error
+  const pathResult = useMemo(() => {
+    if (!isValid) return { value: null, error: '', count: 0 }
+    return applyJsonPath(parsed.data, jsonPath)
+  }, [isValid, jsonPath, parsed.data])
+  const effectiveOutput = useMemo(() => {
+    if (jsonPath.trim()) {
+      if (pathResult.error) return ''
+      return JSON.stringify(pathResult.value, null, 2)
+    }
+    return output
+  }, [jsonPath, output, pathResult.error, pathResult.value])
   const stats = useMemo(() => {
-    const source = output || input
+    const source = effectiveOutput || input
     return {
       characters: source.length,
       lines: source ? source.split('\n').length : 0,
     }
-  }, [input, output])
+  }, [effectiveOutput, input])
   const searchCount = useMemo(() => {
     if (!searchTerm.trim()) return 0
-    return output.toLowerCase().split(searchTerm.trim().toLowerCase()).length - 1
-  }, [output, searchTerm])
+    return effectiveOutput.toLowerCase().split(searchTerm.trim().toLowerCase()).length - 1
+  }, [effectiveOutput, searchTerm])
 
   function formatJson() {
     if (!isValid) return
@@ -147,9 +197,9 @@ export function JSONFormatter() {
   }
 
   async function copyOutput() {
-    if (!output.trim()) return
-    await navigator.clipboard.writeText(output)
-    setMessage('Output copied')
+    if (!effectiveOutput.trim()) return
+    await navigator.clipboard.writeText(effectiveOutput)
+    setMessage(jsonPath.trim() ? 'Filtered output copied' : 'Output copied')
   }
 
   async function loadFile(file) {
@@ -169,11 +219,11 @@ export function JSONFormatter() {
   }
 
   function downloadOutput() {
-    const blob = new Blob([output], { type: 'application/json' })
+    const blob = new Blob([effectiveOutput], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'formatted.json'
+    link.download = jsonPath.trim() ? 'filtered.json' : 'formatted.json'
     link.click()
     URL.revokeObjectURL(url)
     setMessage('JSON downloaded')
@@ -184,11 +234,17 @@ export function JSONFormatter() {
     setOutput(JSON.stringify(JSON.parse(sampleJson), null, 2))
     setOutputView('highlighted')
     setSearchTerm('')
+    setJsonPath('$.tools[?(@.live === true)].name')
     setMessage('Reset to sample JSON')
   }
 
   return (
-    <div className="tool-body">
+    <div
+      className={`tool-body${isDragging ? ' is-dragging' : ''}`}
+      onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setIsDragging(false) }}
+      onDrop={(e) => { e.preventDefault(); setIsDragging(false); loadFile(e.dataTransfer.files?.[0]) }}
+    >
       <div className="json-status" aria-live="polite">
         <span>
           <span className={isValid ? 'status-dot valid' : 'status-dot invalid'}></span>
@@ -205,7 +261,7 @@ export function JSONFormatter() {
           Open JSON
           <input type="file" accept=".json,application/json,text/json" onChange={(event) => loadFile(event.target.files?.[0])} />
         </label>
-        <button type="button" className="secondary-button" onClick={downloadOutput} disabled={!output.trim()}>
+        <button type="button" className="secondary-button" onClick={downloadOutput} disabled={!effectiveOutput.trim()}>
           <Download size={17} aria-hidden="true" />
           Download
         </button>
@@ -262,11 +318,29 @@ export function JSONFormatter() {
               </button>
             </div>
           </div>
+
+          <label className="json-path-field">
+            JSONPath
+            <input
+              value={jsonPath}
+              onChange={(event) => setJsonPath(event.target.value)}
+              placeholder="$.tools[?(@.live === true)].name"
+              spellCheck="false"
+            />
+          </label>
+
+          {jsonPath.trim() && (
+            <div className={`json-path-summary ${pathResult.error ? 'is-error' : ''}`}>
+              <span>{pathResult.error || 'JSONPath applied to parsed input.'}</span>
+              {!pathResult.error && <strong>{pathResult.count} matches</strong>}
+            </div>
+          )}
+
           {outputView === 'raw' ? (
-            <textarea id="json-output" className="code-area" value={output} readOnly spellCheck="false" />
+            <textarea id="json-output" className="code-area" value={effectiveOutput} readOnly spellCheck="false" />
           ) : (
             <pre id="json-output" className="json-highlighted-output" aria-live="polite">
-              <code>{highlightJson(output)}</code>
+              <code>{highlightJson(effectiveOutput)}</code>
             </pre>
           )}
         </div>
@@ -295,7 +369,9 @@ export function JSONFormatter() {
         </button>
       </div>
 
-      <p className="helper-text">{message || 'Paste JSON to validate it, pretty-print it, or make it compact.'}</p>
+      <p className="helper-text">
+        {message || 'Paste JSON to validate it, pretty-print it, or filter it with full JSONPath expressions.'}
+      </p>
     </div>
   )
 }

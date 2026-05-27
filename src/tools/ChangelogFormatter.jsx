@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import LinkifyIt from 'linkify-it'
 import { Clipboard, Download } from 'lucide-react'
 
 const SECTIONS = ['Added', 'Changed', 'Fixed', 'Removed', 'Deprecated', 'Security']
@@ -11,6 +12,8 @@ const KEYWORDS = {
   Deprecated: /\b(deprecat|obsolet|legacy|sunset|phase.?out)\w*/i,
   Security:   /\b(security|vuln|cve|auth|xss|injection|csrf|sanitiz|escape|exploit)\w*/i,
 }
+
+const linkify = new LinkifyIt()
 
 function classify(text) {
   for (const [section, re] of Object.entries(KEYWORDS)) {
@@ -33,6 +36,68 @@ function buildMarkdown(items, version, date) {
   return [header, '', ...body].join('\n').trimEnd()
 }
 
+function buildLinkedParts(line, repoUrl) {
+  const segments = []
+
+  const urlMatches = linkify.match(line) || []
+  urlMatches.forEach(m => segments.push({ start: m.index, end: m.lastIndex, href: m.url, label: m.text }))
+
+  if (repoUrl) {
+    const base = repoUrl.replace(/\/$/, '')
+    const issueRe = /#(\d+)/g
+    let m
+    while ((m = issueRe.exec(line)) !== null) {
+      segments.push({ start: m.index, end: m.index + m[0].length, href: `${base}/issues/${m[1]}`, label: m[0] })
+    }
+    const commitRe = /\b([0-9a-f]{7,12})\b/g
+    while ((m = commitRe.exec(line)) !== null) {
+      segments.push({ start: m.index, end: m.index + m[0].length, href: `${base}/commit/${m[1]}`, label: m[0] })
+    }
+  }
+
+  segments.sort((a, b) => a.start - b.start)
+  const deduped = []
+  let cursor = 0
+  for (const seg of segments) {
+    if (seg.start >= cursor) {
+      deduped.push(seg)
+      cursor = seg.end
+    }
+  }
+
+  const parts = []
+  let pos = 0
+  deduped.forEach((seg, i) => {
+    if (seg.start > pos) parts.push(line.slice(pos, seg.start))
+    parts.push(
+      <a key={i} href={seg.href} target="_blank" rel="noopener noreferrer" className="changelog-link">
+        {seg.label}
+      </a>,
+    )
+    pos = seg.end
+  })
+  if (pos < line.length) parts.push(line.slice(pos))
+  return parts
+}
+
+function renderPreview(markdown, repoUrl) {
+  return markdown.split('\n').map((line, i) => {
+    if (line.startsWith('## ')) {
+      return <div key={i} className="changelog-preview-h2">{buildLinkedParts(line, repoUrl)}</div>
+    }
+    if (line.startsWith('### ')) {
+      return <div key={i} className="changelog-preview-h3">{buildLinkedParts(line, repoUrl)}</div>
+    }
+    if (line.startsWith('- ')) {
+      return <div key={i} className="changelog-preview-item">{buildLinkedParts(line, repoUrl)}</div>
+    }
+    if (!line.trim()) {
+      return <div key={i} className="changelog-preview-gap" />
+    }
+    return <div key={i}>{buildLinkedParts(line, repoUrl)}</div>
+  })
+}
+
 const SECTION_COLORS = {
   Added: '#10b981',
   Changed: '#3b82f6',
@@ -46,6 +111,7 @@ export function ChangelogFormatter() {
   const [raw, setRaw] = useState('')
   const [version, setVersion] = useState('')
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [repoUrl, setRepoUrl] = useState('')
   const [overrides, setOverrides] = useState({})
   const [message, setMessage] = useState('')
 
@@ -110,6 +176,19 @@ export function ChangelogFormatter() {
             onChange={e => setDate(e.target.value)}
           />
         </div>
+        <div className="field-group">
+          <label className="field-label">
+            Repo URL
+            <span className="field-label-hint"> — optional, enables #issue and commit links</span>
+          </label>
+          <input
+            type="url"
+            className="text-input"
+            value={repoUrl}
+            onChange={e => setRepoUrl(e.target.value)}
+            placeholder="https://github.com/user/repo"
+          />
+        </div>
       </div>
 
       <div className="field-group">
@@ -121,7 +200,7 @@ export function ChangelogFormatter() {
           onChange={e => setRaw(e.target.value)}
           placeholder={[
             '- Added dark mode support',
-            '- Fixed login redirect bug',
+            '- Fixed login redirect bug #42',
             '- Updated React to 19.0',
             '- Removed legacy API endpoints',
             '- Security patch for auth tokens',
@@ -173,17 +252,19 @@ export function ChangelogFormatter() {
       {hasItems && (
         <div className="field-group">
           <div className="section-title-row">
-            <span className="field-label">Markdown Output</span>
+            <span className="field-label">Preview</span>
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="button" className="secondary-button" onClick={copy}>
-                <Clipboard size={14} style={ICN} />Copy
+                <Clipboard size={14} style={ICN} />Copy markdown
               </button>
               <button type="button" className="secondary-button" onClick={download}>
                 <Download size={14} style={ICN} />Download .md
               </button>
             </div>
           </div>
-          <pre className="code-output">{output}</pre>
+          <div className="changelog-preview">
+            {renderPreview(output, repoUrl)}
+          </div>
         </div>
       )}
 

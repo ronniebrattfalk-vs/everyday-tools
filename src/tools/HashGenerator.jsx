@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react'
+import CRC32 from 'crc-32'
+import SparkMD5 from 'spark-md5'
 import { Clipboard, Download, FileUp, RotateCcw } from 'lucide-react'
 
-const algorithms = ['SHA-1', 'SHA-256', 'SHA-384', 'SHA-512']
+const webCryptoAlgorithms = ['SHA-1', 'SHA-256', 'SHA-384', 'SHA-512']
+const customAlgorithms = ['MD5', 'CRC32']
 const sampleText = 'Everyday Tools hash generator'
 
 function bytesToHex(buffer) {
@@ -10,7 +13,14 @@ function bytesToHex(buffer) {
     .join('')
 }
 
+function crc32ToHex(value) {
+  return (value >>> 0).toString(16).padStart(8, '0')
+}
+
 async function digestValue(algorithm, bytes) {
+  if (algorithm === 'MD5') return SparkMD5.ArrayBuffer.hash(bytes)
+  if (algorithm === 'CRC32') return crc32ToHex(CRC32.buf(new Uint8Array(bytes)))
+
   const hash = await crypto.subtle.digest(algorithm, bytes)
   return bytesToHex(hash)
 }
@@ -30,7 +40,9 @@ export function HashGenerator() {
   const [hashes, setHashes] = useState([])
   const [sourceName, setSourceName] = useState('Text input')
   const [message, setMessage] = useState('')
+  const [isDragging, setIsDragging] = useState(false)
 
+  const algorithms = [...customAlgorithms, ...webCryptoAlgorithms]
   const report = useMemo(
     () =>
       hashes
@@ -52,7 +64,7 @@ export function HashGenerator() {
   }
 
   async function hashText() {
-    await hashBytes(new TextEncoder().encode(input), 'Text input')
+    await hashBytes(new TextEncoder().encode(input).buffer, 'Text input')
   }
 
   async function hashFile(file) {
@@ -117,14 +129,19 @@ export function HashGenerator() {
           </button>
         </div>
 
-        <label className="upload-box">
+        <label
+          className={`upload-box ${isDragging ? 'is-dragging' : ''}`}
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(e) => { e.preventDefault(); setIsDragging(false); hashFile(e.dataTransfer.files?.[0]) }}
+        >
           <FileUp size={30} aria-hidden="true" />
-          <span>Choose a file to hash</span>
-          <small>Calculates hashes locally from the selected file.</small>
+          <span>Choose or drop a file to hash</span>
+          <small>Calculates MD5, CRC32, and SHA hashes locally from the selected file.</small>
           <input type="file" onChange={(event) => hashFile(event.target.files?.[0])} />
         </label>
 
-        <p className="helper-text">{message || 'Generate SHA hashes without uploading the input.'}</p>
+        <p className="helper-text">{message || 'Generate MD5, CRC32, and SHA hashes without uploading the input.'}</p>
       </section>
 
       <section className="hash-results">

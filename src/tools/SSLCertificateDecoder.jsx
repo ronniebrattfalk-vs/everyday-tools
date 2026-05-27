@@ -1,92 +1,130 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import forge from 'node-forge'
 import { Clipboard, RotateCcw } from 'lucide-react'
 
 const samplePem = `-----BEGIN CERTIFICATE-----
-MIIBlzCCATygAwIBAgIUToolSampleCertificateForLocalPreviewOnlyMAoGCCqG
-SM49BAMCMBUxEzARBgNVBAMMCmV4YW1wbGUuY29tMB4XDTI2MDUyNjAwMDAwMFoX
-DTI3MDUyNjAwMDAwMFowFTETMBEGA1UEAwwKZXhhbXBsZS5jb20wWTATBgcqhkjO
-PQIBBggqhkjOPQMBBwNCAASampleCertificateBodyForUiPreviewOnly12345678
-90abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456owCg
-YIKoZIzj0EAwIDRwAwRAIgSampleSignaturePreviewOnlyDoNotUseForRealCert
+MIICWDCCAcGgAwIBAgIBATANBgkqhkiG9w0BAQsFADBDMRYwFAYDVQQDEw1leGFt
+cGxlLmxvY2FsMRcwFQYDVQQKEw5FdmVyeWRheSBUb29sczEQMA4GA1UECxMHUHJl
+dmlldzAeFw0yNjAxMDEwMDAwMDBaFw0yNzAxMDEwMDAwMDBaMEMxFjAUBgNVBAMT
+DWV4YW1wbGUubG9jYWwxFzAVBgNVBAoTDkV2ZXJ5ZGF5IFRvb2xzMRAwDgYDVQQL
+EwdQcmV2aWV3MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDb9Hr2L5PbkmMK
+S+kJtyY7RprO1L4EIjWOvoUrb3nD5wVy6RloVRRJU7bYfuhdsUf4HpGoVHCj1Jjf
+3LeuvyXy0a1O7toDkTZvHBQEBDrVCJ6eKad2q6znRVgQ1BVF7D0IKi1QgwNaO01c
+3BGmEjH3rWnJB0q1830ytUkNbfn4QQIDAQABo1wwWjAJBgNVHRMEAjAAMAsGA1Ud
+DwQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDATArBgNVHREEJDAigg1leGFtcGxl
+LmxvY2FsghF3d3cuZXhhbXBsZS5sb2NhbDANBgkqhkiG9w0BAQsFAAOBgQDDfko6
+iZjE9G/q05jgcuk3aIYgEOqnQENgRmgBHvm4wsZPIuDCS4Mnt/nXe/kS6dncR0vx
+GZMgQoOpTvUU4hKTboultcaU+lrk8czHKOO2+k+Ca3WyGD5O6znVV8z6bK4QjqmH
+jBV5pk1rmsiCMs5e9E4c4dN8a6k9NvlqkXB1MA==
 -----END CERTIFICATE-----`
 
-function pemToBytes(pem) {
-  const base64 = pem.replace(/-----BEGIN CERTIFICATE-----|-----END CERTIFICATE-----|\s/g, '')
-  const binary = atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '='))
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0))
+function formatDn(attributes = []) {
+  return attributes.map((item) => `${item.shortName || item.name}=${item.value}`).join(', ') || 'Unknown'
 }
 
-function bytesToHex(buffer) {
-  return Array.from(new Uint8Array(buffer))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join(':')
+function formatDate(value) {
+  return value ? new Date(value).toLocaleString() : 'Unknown'
 }
 
-function extractStrings(bytes) {
-  const text = Array.from(bytes)
-    .map((byte) => (byte >= 32 && byte <= 126 ? String.fromCharCode(byte) : ' '))
-    .join(' ')
-  return Array.from(new Set(text.split(/\s+/).filter((value) => value.length >= 4))).slice(0, 16)
+function formatFingerprint(pem) {
+  const der = forge.pki.pemToDer(pem)
+  const md = forge.md.sha256.create()
+  md.update(der.getBytes())
+  return md.digest().toHex().match(/.{1,2}/g)?.join(':') || 'Unavailable'
 }
 
-function extractDates(bytes) {
-  const ascii = Array.from(bytes)
-    .map((byte) => (byte >= 32 && byte <= 126 ? String.fromCharCode(byte) : ' '))
-    .join('')
-  return ascii.match(/\d{12}Z|\d{14}Z/g) || []
+function getPublicKeySize(key) {
+  if (key?.n?.bitLength) return `${key.n.bitLength()} bit RSA`
+  if (key?.q?.byteLength) return `${key.q.byteLength() * 8} bit EC`
+  return 'Unknown'
 }
 
-function formatCertDate(value) {
-  if (!value) return 'Unknown'
-  const year = value.length === 13 ? `20${value.slice(0, 2)}` : value.slice(0, 4)
-  const offset = value.length === 13 ? 2 : 4
-  return `${year}-${value.slice(offset, offset + 2)}-${value.slice(offset + 2, offset + 4)} ${value.slice(offset + 4, offset + 6)}:${value.slice(offset + 6, offset + 8)} UTC`
+function formatGeneralName(name) {
+  if (name.type === 2) return name.value
+  if (name.type === 7 && name.ip) return name.ip
+  if (name.type === 6) return name.value
+  if (name.type === 1) return name.value
+  return name.value || JSON.stringify(name)
+}
+
+function readableExtension(extension) {
+  const flags = Object.entries(extension)
+    .filter(([key, value]) => !['id', 'name', 'value', 'critical', 'altNames'].includes(key) && value === true)
+    .map(([key]) => key)
+
+  if (extension.altNames?.length) {
+    return extension.altNames.map(formatGeneralName).join(', ')
+  }
+
+  if (flags.length) return flags.join(', ')
+  return extension.value ? String(extension.value) : 'No decoded details'
+}
+
+function extractPemBlocks(value) {
+  return value.match(/-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g) || []
+}
+
+function decodeCertificates(pem) {
+  const blocks = extractPemBlocks(pem)
+  if (!blocks.length) throw new Error('Paste one or more PEM certificates.')
+
+  const certificates = blocks.map((block) => {
+    const cert = forge.pki.certificateFromPem(block)
+    return {
+      pem: block,
+      cert,
+      fingerprint: formatFingerprint(block),
+      subject: formatDn(cert.subject.attributes),
+      issuer: formatDn(cert.issuer.attributes),
+      notBefore: formatDate(cert.validity.notBefore),
+      notAfter: formatDate(cert.validity.notAfter),
+      signatureAlgorithm: forge.pki.oids[cert.siginfo.algorithmOid] || cert.siginfo.algorithmOid,
+      publicKeySize: getPublicKeySize(cert.publicKey),
+      sans: cert.getExtension('subjectAltName')?.altNames?.map(formatGeneralName) || [],
+      extensions: (cert.extensions || []).map((extension) => ({
+        name: extension.name || 'Unknown',
+        oid: extension.id || 'Unknown',
+        critical: extension.critical ? 'Yes' : 'No',
+        details: readableExtension(extension),
+      })),
+    }
+  })
+
+  return {
+    certificates,
+    primary: certificates[0],
+    chain: certificates.map((item) => item.subject),
+  }
 }
 
 export function SSLCertificateDecoder() {
   const [pem, setPem] = useState(samplePem)
-  const [fingerprint, setFingerprint] = useState('')
   const [message, setMessage] = useState('')
 
   const decoded = useMemo(() => {
     try {
-      const bytes = pemToBytes(pem)
-      const dates = extractDates(bytes)
-      return {
-        byteLength: bytes.byteLength,
-        dates,
-        error: '',
-        strings: extractStrings(bytes),
-      }
+      const result = decodeCertificates(pem)
+      return { ...result, error: '' }
     } catch (error) {
-      return { byteLength: 0, dates: [], error: error.message, strings: [] }
-    }
-  }, [pem])
-
-  useEffect(() => {
-    let cancelled = false
-    async function calculateFingerprint() {
-      try {
-        const bytes = pemToBytes(pem)
-        const hash = await crypto.subtle.digest('SHA-256', bytes)
-        if (!cancelled) setFingerprint(bytesToHex(hash))
-      } catch {
-        if (!cancelled) setFingerprint('')
-      }
-    }
-    calculateFingerprint()
-    return () => {
-      cancelled = true
+      return { certificates: [], chain: [], error: error.message, primary: null }
     }
   }, [pem])
 
   async function copySummary() {
+    if (!decoded.primary) return
+
     const summary = [
-      `SHA-256 fingerprint: ${fingerprint || 'Unavailable'}`,
-      `Not before: ${formatCertDate(decoded.dates[0])}`,
-      `Not after: ${formatCertDate(decoded.dates[1])}`,
-      `Detected strings: ${decoded.strings.join(', ') || 'None'}`,
+      `Subject: ${decoded.primary.subject}`,
+      `Issuer: ${decoded.primary.issuer}`,
+      `Valid from: ${decoded.primary.notBefore}`,
+      `Valid until: ${decoded.primary.notAfter}`,
+      `SHA-256 fingerprint: ${decoded.primary.fingerprint}`,
+      `Signature algorithm: ${decoded.primary.signatureAlgorithm}`,
+      `Public key: ${decoded.primary.publicKeySize}`,
+      `Subject alternative names: ${decoded.primary.sans.join(', ') || 'None'}`,
+      `Issuer chain: ${decoded.chain.join(' -> ')}`,
     ].join('\n')
+
     await navigator.clipboard.writeText(summary)
     setMessage('Certificate summary copied')
   }
@@ -120,30 +158,74 @@ export function SSLCertificateDecoder() {
           Copy summary
         </button>
 
-        <p className="helper-text">{decoded.error || message || 'Decodes basic local certificate metadata and SHA-256 fingerprint.'}</p>
+        <p className="helper-text">
+          {decoded.error || message || 'Parses X.509 details locally, including SANs, key usage, signature algorithm, and extensions.'}
+        </p>
       </section>
 
-      <section className="headers-results">
+      <section className="headers-results ssl-results">
         <article className={decoded.error ? 'fails' : 'passes'}>
           <span>SHA-256 fingerprint</span>
-          <strong>{fingerprint || 'Unavailable'}</strong>
+          <strong>{decoded.primary?.fingerprint || 'Unavailable'}</strong>
         </article>
         <article>
-          <span>Not before</span>
-          <strong>{formatCertDate(decoded.dates[0])}</strong>
+          <span>Subject</span>
+          <strong>{decoded.primary?.subject || 'Unknown'}</strong>
         </article>
         <article>
-          <span>Not after</span>
-          <strong>{formatCertDate(decoded.dates[1])}</strong>
+          <span>Issuer</span>
+          <strong>{decoded.primary?.issuer || 'Unknown'}</strong>
         </article>
         <article>
-          <span>DER size</span>
-          <strong>{decoded.byteLength ? `${decoded.byteLength} bytes` : 'Unknown'}</strong>
+          <span>Validity</span>
+          <strong>{decoded.primary ? `${decoded.primary.notBefore} to ${decoded.primary.notAfter}` : 'Unknown'}</strong>
         </article>
         <article>
-          <span>Detected names</span>
-          <p>{decoded.strings.join(', ') || 'No readable strings detected.'}</p>
+          <span>Signature algorithm</span>
+          <strong>{decoded.primary?.signatureAlgorithm || 'Unknown'}</strong>
         </article>
+        <article>
+          <span>Public key</span>
+          <strong>{decoded.primary?.publicKeySize || 'Unknown'}</strong>
+        </article>
+        <article className="ssl-wide-card">
+          <span>Subject alternative names</span>
+          <p>{decoded.primary?.sans.join(', ') || 'None'}</p>
+        </article>
+        <article className="ssl-wide-card">
+          <span>Issuer chain</span>
+          <p>{decoded.chain.length ? decoded.chain.join(' -> ') : 'No certificates decoded.'}</p>
+        </article>
+
+        {decoded.primary && (
+          <div className="ssl-extension-wrap">
+            <div className="json-output-title">
+              <h3>Extensions</h3>
+              <span className="json-stat">{decoded.primary.extensions.length} decoded</span>
+            </div>
+
+            <table className="metadata-table">
+              <thead>
+                <tr>
+                  <th scope="col">Extension</th>
+                  <th scope="col">OID</th>
+                  <th scope="col">Critical</th>
+                  <th scope="col">Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {decoded.primary.extensions.map((extension) => (
+                  <tr key={`${extension.oid}-${extension.name}`}>
+                    <th scope="row">{extension.name}</th>
+                    <td>{extension.oid}</td>
+                    <td>{extension.critical}</td>
+                    <td>{extension.details}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   )

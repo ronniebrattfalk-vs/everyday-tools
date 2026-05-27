@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import DOMPurify from 'dompurify'
+import { optimize } from 'svgo/browser'
 import { Clipboard, Download, RotateCcw } from 'lucide-react'
 
 const sampleSvg = `<svg width="240" height="140" viewBox="0 0 240 140" xmlns="http://www.w3.org/2000/svg">
@@ -11,25 +12,60 @@ const sampleSvg = `<svg width="240" height="140" viewBox="0 0 240 140" xmlns="ht
   <path d="M130 88 L164 52 L198 88 Z" fill="#f59e0b" />
 </svg>`
 
+function formatBytes(bytes) {
+  if (!bytes) return '0 B'
+  if (bytes < 1024) return `${bytes} B`
+  return `${(bytes / 1024).toFixed(1)} KB`
+}
+
 function optimizeSvg(value, removeTitles) {
-  const parser = new DOMParser()
-  const document = parser.parseFromString(value, 'image/svg+xml')
-  const svg = document.querySelector('svg')
-  if (!svg) return { error: 'Paste valid SVG markup with an <svg> root.', value: '' }
+  if (!value.trim()) return { error: '', value: '', beforeBytes: 0, afterBytes: 0 }
 
-  svg.querySelectorAll('metadata, script, foreignObject').forEach((node) => node.remove())
-  if (removeTitles) svg.querySelectorAll('title, desc').forEach((node) => node.remove())
-  svg.querySelectorAll('*').forEach((node) => {
-    Array.from(node.attributes).forEach((attribute) => {
-      if (attribute.name.startsWith('data-') || attribute.name.startsWith('inkscape:') || attribute.name.startsWith('sodipodi:')) {
-        node.removeAttribute(attribute.name)
-      }
+  try {
+    const result = optimize(value, {
+      multipass: true,
+      js2svg: { pretty: false, indent: 0 },
+      plugins: [
+        {
+          name: 'preset-default',
+          params: {
+            overrides: {
+              removeViewBox: false,
+            },
+          },
+        },
+        'removeDoctype',
+        'removeComments',
+        'removeMetadata',
+        removeTitles ? 'removeTitle' : null,
+        removeTitles ? 'removeDesc' : null,
+        'sortAttrs',
+      ].filter(Boolean),
     })
-  })
 
-  const serialized = new XMLSerializer().serializeToString(svg)
-  const compact = serialized.replace(/>\s+</g, '><').replace(/\s{2,}/g, ' ').trim()
-  return { error: '', value: DOMPurify.sanitize(compact, { USE_PROFILES: { svg: true, svgFilters: true } }) }
+    if (!result.data.includes('<svg')) {
+      return {
+        error: 'Paste valid SVG markup with an <svg> root.',
+        value: '',
+        beforeBytes: 0,
+        afterBytes: 0,
+      }
+    }
+
+    return {
+      error: '',
+      value: result.data.trim(),
+      beforeBytes: new TextEncoder().encode(value).length,
+      afterBytes: new TextEncoder().encode(result.data).length,
+    }
+  } catch (error) {
+    return {
+      error: error.message || 'Could not optimize that SVG.',
+      value: '',
+      beforeBytes: 0,
+      afterBytes: 0,
+    }
+  }
 }
 
 function downloadText(value, filename) {
@@ -47,7 +83,12 @@ export function SVGOptimizer() {
   const [removeTitles, setRemoveTitles] = useState(false)
   const [message, setMessage] = useState('')
   const output = useMemo(() => optimizeSvg(input, removeTitles), [input, removeTitles])
-  const saved = output.value ? Math.max(input.length - output.value.length, 0) : 0
+  const previewMarkup = useMemo(
+    () => (output.value ? DOMPurify.sanitize(output.value, { USE_PROFILES: { svg: true, svgFilters: true } }) : ''),
+    [output.value],
+  )
+  const savedBytes = Math.max(output.beforeBytes - output.afterBytes, 0)
+  const savedPercent = output.beforeBytes ? Math.round((savedBytes / output.beforeBytes) * 100) : 0
 
   async function copyOutput() {
     if (!output.value) return
@@ -88,8 +129,23 @@ export function SVGOptimizer() {
 
         <label className="check-row">
           <input type="checkbox" checked={removeTitles} onChange={(event) => setRemoveTitles(event.target.checked)} />
-          Remove title and description
+          Remove title and description tags
         </label>
+
+        <div className="svg-stats" aria-live="polite">
+          <article>
+            <span>Before</span>
+            <strong>{formatBytes(output.beforeBytes)}</strong>
+          </article>
+          <article>
+            <span>After</span>
+            <strong>{formatBytes(output.afterBytes)}</strong>
+          </article>
+          <article>
+            <span>Saved</span>
+            <strong>{savedBytes ? `${formatBytes(savedBytes)} (${savedPercent}%)` : '0 B'}</strong>
+          </article>
+        </div>
 
         <div className="button-row">
           <button type="button" className="secondary-button" onClick={copyOutput} disabled={!output.value}>
@@ -102,11 +158,13 @@ export function SVGOptimizer() {
           </button>
         </div>
 
-        <p className="helper-text">{output.error || message || `${saved} characters removed`}</p>
+        <p className="helper-text">
+          {output.error || message || 'SVGO now removes redundant markup and reports the size savings.'}
+        </p>
       </section>
 
       <section className="svg-preview-panel">
-        <div className="svg-preview" dangerouslySetInnerHTML={{ __html: output.value }} />
+        <div className="svg-preview" dangerouslySetInnerHTML={{ __html: previewMarkup }} />
         <textarea className="code-area" value={output.error || output.value} readOnly spellCheck="false" />
       </section>
     </div>

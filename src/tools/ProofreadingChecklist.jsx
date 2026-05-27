@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { bigram, trigram } from 'n-gram'
 import { Copy } from 'lucide-react'
 
 const FILLER_WORDS = [
@@ -64,6 +65,43 @@ function findAdverbs(text) {
   return unique
 }
 
+// Stop words to exclude from phrase detection (articles, prepositions, conjunctions)
+const STOP_WORDS = new Set([
+  'the','and','for','that','this','with','are','was','were','has','have','had',
+  'not','but','from','they','their','there','then','than','what','will','would',
+  'can','could','should','its','into','onto','upon','over','under','about','after',
+  'before','between','through','during','each','every','all','any','some','more',
+  'most','other','such','when','where','which','who','whom','how','why','our',
+  'your','his','her','its','its','you','also','even','may','yet','both','just',
+  'been','being','does','did','let','per','via',
+])
+
+function findRepeatedPhrases(text) {
+  const words = text.toLowerCase().match(/\b[a-z]{3,}\b/g) ?? []
+  const filtered = words.filter(w => !STOP_WORDS.has(w))
+
+  const freq = {}
+
+  bigram(filtered).forEach(pair => {
+    const key = pair.join(' ')
+    freq[key] = (freq[key] ?? 0) + 1
+  })
+
+  trigram(filtered).forEach(triple => {
+    const key = triple.join(' ')
+    freq[key] = (freq[key] ?? 0) + 1
+  })
+
+  return Object.entries(freq)
+    .filter(([phrase, n]) => {
+      const wordCount = phrase.split(' ').length
+      return wordCount === 2 ? n >= 3 : n >= 2
+    })
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([phrase, n]) => `"${phrase}" ×${n}`)
+}
+
 function computeScore(issues) {
   let penalty = 0
   penalty += Math.min(issues.passive.length * 4, 20)
@@ -72,6 +110,7 @@ function computeScore(issues) {
   penalty += Math.min(issues.longSentences.length * 5, 20)
   penalty += Math.min(issues.repeated.length * 3, 15)
   penalty += Math.min(issues.adverbs.length * 2, 10)
+  penalty += Math.min(issues.phrases.length * 3, 15)
   return Math.max(0, 100 - penalty)
 }
 
@@ -83,12 +122,13 @@ function scoreLabel(s) {
 }
 
 const ISSUE_DEFS = [
-  { key: 'passive',       title: 'Passive Voice',    tip: 'Consider rewriting passives as active constructions for clarity.' },
-  { key: 'hedges',        title: 'Hedging Language',  tip: 'Phrases like "I think" or "it seems" weaken your message.' },
-  { key: 'fillers',       title: 'Filler Words',      tip: 'Words like "basically", "just", and "really" rarely add meaning.' },
-  { key: 'adverbs',       title: 'Overused Adverbs',  tip: 'Adverbs often signal a weak verb. Try to find a stronger verb instead.' },
-  { key: 'repeated',      title: 'Repeated Words',    tip: 'Words used 3+ times may be overused. Consider synonyms.' },
-  { key: 'longSentences', title: 'Long Sentences',    tip: 'Sentences over 30 words are hard to follow. Consider splitting them.' },
+  { key: 'passive',       title: 'Passive Voice',       tip: 'Consider rewriting passives as active constructions for clarity.' },
+  { key: 'hedges',        title: 'Hedging Language',     tip: 'Phrases like "I think" or "it seems" weaken your message.' },
+  { key: 'fillers',       title: 'Filler Words',         tip: 'Words like "basically", "just", and "really" rarely add meaning.' },
+  { key: 'adverbs',       title: 'Overused Adverbs',     tip: 'Adverbs often signal a weak verb. Try to find a stronger verb instead.' },
+  { key: 'repeated',      title: 'Repeated Words',       tip: 'Words used 3+ times may be overused. Consider synonyms.' },
+  { key: 'phrases',       title: 'Repeated Phrases',     tip: 'Multi-word phrases repeated across paragraphs can make writing feel monotonous.' },
+  { key: 'longSentences', title: 'Long Sentences',       tip: 'Sentences over 30 words are hard to follow. Consider splitting them.' },
 ]
 
 export function ProofreadingChecklist() {
@@ -104,6 +144,7 @@ export function ProofreadingChecklist() {
       longSentences: findLongSentences(text),
       repeated:      findRepeatedWords(text),
       adverbs:       findAdverbs(text),
+      phrases:       findRepeatedPhrases(text),
     }
   }, [text])
 
@@ -140,7 +181,7 @@ export function ProofreadingChecklist() {
             rows={10}
             value={text}
             onChange={e => setText(e.target.value)}
-            placeholder="Paste your text here to check for passive voice, filler words, long sentences, and more..."
+            placeholder="Paste your text here to check for passive voice, filler words, long sentences, repeated phrases, and more..."
           />
         </div>
       </div>

@@ -1,43 +1,13 @@
 import { useMemo, useState } from 'react'
+import { addBusinessDays, addDays, differenceInBusinessDays, differenceInCalendarDays, format, parseISO } from 'date-fns'
 import { Clipboard, RotateCcw } from 'lucide-react'
 
-const dayMs = 24 * 60 * 60 * 1000
-
-function parseDate(value) {
-  return new Date(`${value}T00:00:00`)
+function toDate(value) {
+  return parseISO(value)
 }
 
-function daysBetween(start, end) {
-  return Math.round((parseDate(end) - parseDate(start)) / dayMs)
-}
-
-function countBusinessDays(start, end) {
-  const direction = daysBetween(start, end) < 0 ? -1 : 1
-  let count = 0
-  const current = parseDate(start)
-  const target = parseDate(end)
-
-  while ((direction > 0 && current < target) || (direction < 0 && current > target)) {
-    current.setDate(current.getDate() + direction)
-    const day = current.getDay()
-    if (day !== 0 && day !== 6) count += direction
-  }
-
-  return count
-}
-
-function addDays(start, days, businessOnly) {
-  const date = parseDate(start)
-  const direction = days < 0 ? -1 : 1
-  let remaining = Math.abs(days)
-
-  while (remaining > 0) {
-    date.setDate(date.getDate() + direction)
-    const day = date.getDay()
-    if (!businessOnly || (day !== 0 && day !== 6)) remaining -= 1
-  }
-
-  return date.toISOString().slice(0, 10)
+function formatIsoDate(value) {
+  return format(value, 'yyyy-MM-dd')
 }
 
 export function DateDifferenceCalculator() {
@@ -48,21 +18,32 @@ export function DateDifferenceCalculator() {
   const [message, setMessage] = useState('')
 
   const result = useMemo(() => {
-    const calendarDays = daysBetween(startDate, endDate)
-    const businessDays = countBusinessDays(startDate, endDate)
-    const deadline = addDays(startDate, Number(offset) || 0, businessOnly)
+    const start = toDate(startDate)
+    const end = toDate(endDate)
+    const calendarDays = differenceInCalendarDays(end, start)
+    const businessDays = differenceInBusinessDays(end, start)
+    const deadlineDate = businessOnly ? addBusinessDays(start, Number(offset) || 0) : addDays(start, Number(offset) || 0)
     const weeks = calendarDays / 7
-    return { businessDays, calendarDays, deadline, weeks }
+
+    return {
+      businessDays,
+      calendarDays,
+      deadline: formatIsoDate(deadlineDate),
+      endLabel: format(end, 'PPP'),
+      startLabel: format(start, 'PPP'),
+      weeks,
+    }
   }, [businessOnly, endDate, offset, startDate])
 
   async function copySummary() {
     const summary = [
-      `${startDate} to ${endDate}`,
+      `${result.startLabel} to ${result.endLabel}`,
       `${result.calendarDays} calendar days`,
       `${result.businessDays} business days`,
       `${result.weeks.toFixed(2)} weeks`,
-      `Deadline offset: ${result.deadline}`,
+      `${businessOnly ? 'Business-day' : 'Calendar-day'} deadline offset: ${result.deadline}`,
     ].join('\n')
+
     await navigator.clipboard.writeText(summary)
     setMessage('Date summary copied')
   }
@@ -113,7 +94,7 @@ export function DateDifferenceCalculator() {
           Copy summary
         </button>
 
-        <p className="helper-text">{message || 'Calculate durations and simple deadline offsets.'}</p>
+        <p className="helper-text">{message || 'Calculate durations and weekday-aware deadline offsets.'}</p>
       </section>
 
       <section className="calculator-results">

@@ -90,6 +90,10 @@ export function LoanCalculator() {
     () => computeLoan(parseFloat(principal) || 0, parseFloat(rate) || 0, parseFloat(years) || 0, parseFloat(extra) || 0),
     [principal, rate, years, extra],
   )
+  const baseResult = useMemo(
+    () => computeLoan(parseFloat(principal) || 0, parseFloat(rate) || 0, parseFloat(years) || 0, 0),
+    [principal, rate, years],
+  )
 
   const yearlySchedule = useMemo(() => {
     if (!result) return []
@@ -182,7 +186,7 @@ export function LoanCalculator() {
 
             {parseFloat(extra) > 0 && (
               <p className="helper-text" style={{ marginTop: 0 }}>
-                Base payment {cur(result.basePayment)} + {cur(parseFloat(extra))} extra — saves {cur(result.totalInterest - computeLoan(parseFloat(principal), parseFloat(rate), parseFloat(years), 0)?.totalInterest ?? 0)} in interest.
+                Base payment {cur(result.basePayment)} + {cur(parseFloat(extra))} extra — saves {cur((baseResult?.totalInterest ?? 0) - result.totalInterest)} in interest.
               </p>
             )}
 

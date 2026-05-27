@@ -1,25 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronRight, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { PHASES } from '../data/changelog.js'
 import { VERSION, RELEASE_DATE } from '../version.js'
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+function formatDate(iso) {
+  const parts = iso.split('-').map(Number)
+  return `${MONTHS[parts[1] - 1]} ${parts[2]}, ${parts[0]}`
+}
+
 export function WhatsNewModal({ onClose }) {
-  const [expanded, setExpanded] = useState(new Set([PHASES[0].phase]))
+  const [selectedPhase, setSelectedPhase] = useState(PHASES[0].phase)
   const backdropRef = useRef(null)
+
+  const phase = PHASES.find(p => p.phase === selectedPhase) ?? PHASES[0]
+  const allNew = phase.tools.every(t => t.change === 'New tool')
 
   useEffect(() => {
     function onKey(e) { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
-
-  function toggle(phase) {
-    setExpanded(prev => {
-      const next = new Set(prev)
-      next.has(phase) ? next.delete(phase) : next.add(phase)
-      return next
-    })
-  }
 
   function handleBackdrop(e) {
     if (e.target === backdropRef.current) onClose()
@@ -38,42 +40,54 @@ export function WhatsNewModal({ onClose }) {
           </button>
         </div>
 
-        <div className="wn-body">
-          {PHASES.map(p => {
-            const open = expanded.has(p.phase)
-            return (
-              <div key={p.phase} className="wn-phase">
-                <button
-                  type="button"
-                  className="wn-phase-header"
-                  onClick={() => toggle(p.phase)}
-                  aria-expanded={open}
-                >
-                  <div className="wn-phase-left">
-                    <span className="wn-phase-badge">Phase {p.phase}</span>
-                    <span className="wn-phase-title">{p.title}</span>
-                    <span className="wn-phase-count">{p.tools.length} tool{p.tools.length !== 1 ? 's' : ''}</span>
-                  </div>
-                  <div className="wn-phase-right">
-                    <span className="wn-phase-version">{p.version}</span>
-                    <span className="wn-phase-date">{p.date}</span>
-                    {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                  </div>
-                </button>
+        <div className="wn-picker">
+          <select
+            className="wn-phase-select"
+            value={selectedPhase}
+            onChange={e => setSelectedPhase(Number(e.target.value))}
+            aria-label="Select phase"
+          >
+            {PHASES.map(p => (
+              <option key={p.phase} value={p.phase}>
+                Phase {p.phase} — {p.title}  ({p.version})
+              </option>
+            ))}
+          </select>
+        </div>
 
-                {open && (
-                  <div className="wn-phase-body">
-                    <p className="wn-phase-summary">{p.summary}</p>
-                    <ul className="wn-tools-list">
-                      {p.tools.map(t => (
-                        <li key={t}>{t}</li>
-                      ))}
-                    </ul>
+        <div className="wn-detail">
+          <div className="wn-detail-meta">
+            <span className="wn-phase-badge">Phase {phase.phase}</span>
+            <span className="wn-detail-version">{phase.version}</span>
+            <span className="wn-detail-sep">·</span>
+            <span className="wn-detail-date">{formatDate(phase.date)}</span>
+            <span className="wn-detail-sep">·</span>
+            <span className="wn-detail-count">{phase.tools.length} tools</span>
+          </div>
+
+          <p className="wn-detail-summary">{phase.summary}</p>
+
+          {allNew ? (
+            <div className="wn-tool-chips">
+              {phase.tools.map(t => (
+                <span key={t.name} className="wn-tool-chip">{t.name}</span>
+              ))}
+            </div>
+          ) : (
+            <ul className="wn-tool-list">
+              {phase.tools.map(t => (
+                <li key={t.name} className="wn-tool-item">
+                  <div className="wn-tool-item-header">
+                    <strong className="wn-tool-item-name">{t.name}</strong>
+                    {t.change === 'New tool' && <span className="wn-tool-item-new">New</span>}
                   </div>
-                )}
-              </div>
-            )
-          })}
+                  {t.change !== 'New tool' && (
+                    <p className="wn-tool-item-change">{t.change}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </div>

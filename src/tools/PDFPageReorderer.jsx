@@ -34,6 +34,7 @@ export function PDFPageReorderer() {
   const [pageOrder, setPageOrder] = useState('all')
   const [outputName, setOutputName] = useState('reordered.pdf')
   const [message, setMessage] = useState('')
+  const [isDragging, setIsDragging] = useState(false)
 
   async function loadPdf(nextFile) {
     if (!nextFile) return
@@ -86,9 +87,14 @@ export function PDFPageReorderer() {
           </button>
         </div>
 
-        <label className="upload-box">
+        <label
+          className={`upload-box ${isDragging ? 'is-dragging' : ''}`}
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(e) => { e.preventDefault(); setIsDragging(false); loadPdf(e.dataTransfer.files?.[0]) }}
+        >
           <FileUp size={30} aria-hidden="true" />
-          <span>{file?.name || 'Choose a PDF'}</span>
+          <span>{file?.name || 'Choose or drop a PDF'}</span>
           <small>Reorder, reverse, duplicate, or remove pages locally.</small>
           <input type="file" accept="application/pdf" onChange={(event) => loadPdf(event.target.files?.[0])} />
         </label>
