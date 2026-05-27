@@ -297,43 +297,63 @@ Full audit of all tools in the app surfaced several targeted improvements that r
 7. **Future Expense Tracker / Budget Planner** → SVG mini-charts (sparklines and category bars) with no new dependency. Deferred to a dedicated UX pass.
 8. **Future Settings Backup / Restore** → Export all tool localStorage keys as a single JSON archive, import to restore. No new dependency. Deferred to a settings management phase.
 
-### Phase 27: Cloudflare Worker API Gateway (AS2 and HTTP Protocols)
+### Phase 27: Cloudflare Tunnel + Communication API Bridge
 
-For users who want connection testing without running a local service. Only HTTP-based protocols are supported — raw TCP (FTP, SFTP, OFTP2) cannot be proxied through Cloudflare Workers without significant complexity.
+Exposes the local Python Communication service through a Cloudflare Tunnel so the browser tools on everyday-tools can trigger live protocol tests from any machine — including a work PC — without any port forwarding or static IP.
 
-1. **AS2 Connectivity Tester (Worker)** → Deploy a Cloudflare Worker that sends a minimal AS2 HTTPS test message to a partner URL and returns the MDN status, HTTP response code, and timing.
-2. **HTTPS Endpoint Health Checker** → Live certificate and reachability check for any HTTPS URL via a Worker (real-time, not pasted PEM).
-3. **HTTP Header Fetcher** → Fetch real response headers from a URL via Worker proxy, feed into the existing HTTP Header Analyzer for a one-click live check.
+**How it works:**
 
-Dependencies: Cloudflare Workers runtime (no npm packages needed); AS2 signing/encryption requires `crypto.subtle` (built into the Workers runtime).
+The Communication service runs on the home PC as normal. `cloudflared` (Cloudflare's tunnel agent) is also running on the home PC and makes a persistent outbound HTTPS connection to Cloudflare. When the browser at work calls the tunnel URL, Cloudflare routes the request through that tunnel to the home PC, which runs the actual test and returns the result.
+
+```text
+Work PC browser → everyday-tools on Cloudflare
+  → browser calls https://comm-api.yourdomain.com/api/test/as2
+  → Cloudflare Tunnel routes request to home PC
+  → Communication service runs the AS2/OFTP2/FTP/SFTP test
+  → result returned to browser
+```
+
+No port forwarding. No static IP. No router config. Works for AS2, OFTP2, FTP, and SFTP because the tunnel connects to a real process with real socket capabilities — not a Worker with edge runtime limits.
+
+**Setup steps:**
+
+1. Install `cloudflared` on the home PC: `winget install Cloudflare.cloudflared`
+2. Authenticate: `cloudflared tunnel login`
+3. Create a named tunnel: `cloudflared tunnel create comm-api`
+4. Add a DNS route on the Cloudflare dashboard pointing `comm-api.yourdomain.com` to the tunnel
+5. Start the tunnel pointing at the Communication service port: `cloudflared tunnel run --url http://localhost:8787 comm-api`
+6. Optionally: add Cloudflare Access in front of the tunnel so only your account can reach it
+
+**Changes needed in Communication:**
+
+- Add `Access-Control-Allow-Origin` header to `admin_api.py` for the tunnel hostname (or use a token check instead of origin-based CORS)
+- Add 4 test endpoints (see Phase 26 below)
+- Add an optional `--admin-token` requirement on the test endpoints so the tunnel is not open without auth
+
+**Changes needed in everyday-tools:**
+
+- The "API URL" field in each protocol test tool defaults to `http://localhost:8787` for home use and can be changed to the tunnel URL (`https://comm-api.yourdomain.com`) when accessing from work
+- The API URL is saved to `localStorage` so it only needs to be set once per machine
+
+For Cloudflare Worker-specific tools (no home PC required):
+
+1. **HTTPS Endpoint Health Checker** → Live reachability and certificate check for any HTTPS URL via a Worker.
+2. **HTTP Header Fetcher** → Fetch real response headers from a URL via Worker proxy and feed them into the existing HTTP Header Analyzer.
 
 ---
 
-### Phase 26: Local Protocol Testing Bridge (Communication API)
+### Phase 26: Communication API Test Endpoints
 
-Integrates the local Python Communication service with the browser tools. Each test tool degrades gracefully when no local API is configured — it shows a setup card with instructions instead of an error state.
+Adds the four protocol test endpoints to the Communication service that the browser tools in Phase 27 call. This phase is pure Python work on the Communication project — no browser changes.
 
-**Architecture:**
+**New endpoints in `Communication/oftp2_app/admin_api.py`:**
 
-- Each tool has a collapsible "Local API" panel where the user enters the Communication service base URL (e.g. `http://localhost:8787`).
-- The URL is persisted to `localStorage` per-tool.
-- On submit, the browser calls the Communication service endpoint directly. CORS must be allowed on `127.0.0.1` in the service.
+- `POST /api/test/ftp` → Accept `{ host, port, user, password, tls_mode }`, attempt FTP connection using the existing `FtpProtocolAdapter`, return `{ success, banner, listing, error, elapsed_ms }`.
+- `POST /api/test/sftp` → Accept `{ host, port, user, password, host_key_fingerprint }`, attempt SFTP connection using `asyncssh`, return `{ success, host_key_sha256, listing, error, elapsed_ms }`.
+- `POST /api/test/as2` → Accept `{ as2_from, as2_to, partner_url, sign_cert_pem, encrypt_cert_pem }`, send a minimal AS2 test message using the existing AS2 adapter, return `{ success, mdn_status, http_status, headers, error, elapsed_ms }`.
+- `POST /api/test/oftp2` → Accept `{ sfid, host, port, cert_pem, key_pem }`, run an OFTP2 SSRM handshake using the existing OFTP2 adapter, return `{ success, peer_sfid, session_id, error, elapsed_ms }`.
 
-**New endpoints needed in `Communication/oftp2_app/admin_api.py`:**
-
-- `POST /api/test/ftp` — connect to an FTP/FTPS server, return banner + directory listing.
-- `POST /api/test/sftp` — connect to an SFTP server, return host key fingerprint + directory listing.
-- `POST /api/test/as2` — send a minimal AS2 test message and return MDN result + HTTP status.
-- `POST /api/test/oftp2` — perform an OFTP2 SSRM handshake and return session outcome.
-
-**New browser tools (each requires the local API to be running):**
-
-1. **FTP / FTPS Connection Tester** → Host, port, user, password, implicit/explicit TLS; returns connection status, server banner, and optional directory listing.
-2. **SFTP Connection Tester** → Host, port, user, password or key fingerprint; returns connection status, host key SHA-256 fingerprint, and optional directory listing.
-3. **AS2 Connection Tester** → AS2-From, AS2-To, partner URL, signing cert, encryption cert; sends a test message and shows MDN outcome, timing, and headers.
-4. **OFTP2 Handshake Tester** → SFID, partner host/port, certificates; runs a minimal SSRM handshake and shows session result.
-
-Dependencies: None on the browser side (fetch API). New Python dependencies in Communication: none needed — existing adapters already handle these protocols.
+All endpoints require the existing `--admin-token` if one is configured. All return JSON. No new Python dependencies needed — the existing adapters cover all four protocols.
 
 ---
 
