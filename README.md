@@ -297,6 +297,61 @@ Full audit of all tools in the app surfaced several targeted improvements that r
 7. **Future Expense Tracker / Budget Planner** → SVG mini-charts (sparklines and category bars) with no new dependency. Deferred to a dedicated UX pass.
 8. **Future Settings Backup / Restore** → Export all tool localStorage keys as a single JSON archive, import to restore. No new dependency. Deferred to a settings management phase.
 
+### Phase 27: Cloudflare Worker API Gateway (AS2 and HTTP Protocols)
+
+For users who want connection testing without running a local service. Only HTTP-based protocols are supported — raw TCP (FTP, SFTP, OFTP2) cannot be proxied through Cloudflare Workers without significant complexity.
+
+1. **AS2 Connectivity Tester (Worker)** → Deploy a Cloudflare Worker that sends a minimal AS2 HTTPS test message to a partner URL and returns the MDN status, HTTP response code, and timing.
+2. **HTTPS Endpoint Health Checker** → Live certificate and reachability check for any HTTPS URL via a Worker (real-time, not pasted PEM).
+3. **HTTP Header Fetcher** → Fetch real response headers from a URL via Worker proxy, feed into the existing HTTP Header Analyzer for a one-click live check.
+
+Dependencies: Cloudflare Workers runtime (no npm packages needed); AS2 signing/encryption requires `crypto.subtle` (built into the Workers runtime).
+
+---
+
+### Phase 26: Local Protocol Testing Bridge (Communication API)
+
+Integrates the local Python Communication service with the browser tools. Each test tool degrades gracefully when no local API is configured — it shows a setup card with instructions instead of an error state.
+
+**Architecture:**
+
+- Each tool has a collapsible "Local API" panel where the user enters the Communication service base URL (e.g. `http://localhost:8787`).
+- The URL is persisted to `localStorage` per-tool.
+- On submit, the browser calls the Communication service endpoint directly. CORS must be allowed on `127.0.0.1` in the service.
+
+**New endpoints needed in `Communication/oftp2_app/admin_api.py`:**
+
+- `POST /api/test/ftp` — connect to an FTP/FTPS server, return banner + directory listing.
+- `POST /api/test/sftp` — connect to an SFTP server, return host key fingerprint + directory listing.
+- `POST /api/test/as2` — send a minimal AS2 test message and return MDN result + HTTP status.
+- `POST /api/test/oftp2` — perform an OFTP2 SSRM handshake and return session outcome.
+
+**New browser tools (each requires the local API to be running):**
+
+1. **FTP / FTPS Connection Tester** → Host, port, user, password, implicit/explicit TLS; returns connection status, server banner, and optional directory listing.
+2. **SFTP Connection Tester** → Host, port, user, password or key fingerprint; returns connection status, host key SHA-256 fingerprint, and optional directory listing.
+3. **AS2 Connection Tester** → AS2-From, AS2-To, partner URL, signing cert, encryption cert; sends a test message and shows MDN outcome, timing, and headers.
+4. **OFTP2 Handshake Tester** → SFID, partner host/port, certificates; runs a minimal SSRM handshake and shows session result.
+
+Dependencies: None on the browser side (fetch API). New Python dependencies in Communication: none needed — existing adapters already handle these protocols.
+
+---
+
+### Phase 25: Browser-Local Communication And Protocol Tools
+
+All tools in this phase run entirely in the browser with no backend required. They work with pasted or typed input only — no live connections.
+
+1. **AS2 Header Inspector** → Parse pasted AS2 HTTP headers (AS2-From, AS2-To, Message-ID, Disposition-Notification-To, Content-Type), explain MDN sync/async options, signing and encryption flags, flag missing required headers, and show per-field spec notes.
+2. **OFTP2 Record Decoder** → Decode OFTP2 protocol command records (SSRM, SFID, EFID, EERP, NERP, SFNA) from pasted hex or ASCII-encoded bytes, show each field with its name, length, and protocol-spec description.
+3. **EDI Envelope Parser** → Parse X12 (ISA/GS/ST segments) and EDIFACT (UNA/UNB/UNH) envelope structures from pasted EDI text, show sender/receiver IDs, control numbers, timestamps, segment counts, and transaction set summary.
+4. **MIME Boundary Inspector** → Parse multipart MIME messages (as used in AS2 and email attachments) from pasted text, list each MIME part with its Content-Type, encoding, and decoded content preview.
+5. **FTP / SFTP Config Builder** → Enter host, port, user, and remote path then generate ready-to-run command snippets for `curl`, `lftp`, `sftp` CLI, WinSCP XML export, and FileZilla XML export, with correct path encoding and implicit/explicit TLS options.
+6. **SSH Host Key Fingerprint Tool** → Paste an SSH public key in OpenSSH (`ssh-rsa …`) or PEM format and compute the MD5 and SHA-256 fingerprints exactly as `ssh-keygen -l` would produce, for SFTP server verification.
+
+Dependencies: None for tools 1–5 (pure string parsing). Tool 6 uses the browser's built-in `crypto.subtle` WebCrypto API — no install needed.
+
+---
+
 ### Phase 24: Dark Pro Sidebar Redesign
 
 Full UX overhaul. The app now ships with a sticky dark sidebar, breadcrumb topbar, category-colored tool cards, and a persistent light/dark mode toggle.
