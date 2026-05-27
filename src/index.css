@@ -23,6 +23,23 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+[data-theme="dark"] {
+  --bg:            #0c0c0f;
+  --panel:         #111118;
+  --surface:       #16161e;
+  --text:          #e2e2ee;
+  --heading:       #f0f0f8;
+  --muted:         #72728a;
+  --border:        #232332;
+  --accent:        #7c6ef4;
+  --accent-strong: #a78bfa;
+  --accent-soft:   rgba(124, 110, 244, 0.12);
+  --focus:         rgba(124, 110, 244, 0.3);
+  --shadow:        0 18px 45px rgba(0, 0, 0, 0.5);
+  color: var(--text);
+  background: var(--bg);
+}
+
 * {
   box-sizing: border-box;
 }

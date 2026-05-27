@@ -297,6 +297,16 @@ Full audit of all tools in the app surfaced several targeted improvements that r
 7. **Future Expense Tracker / Budget Planner** → SVG mini-charts (sparklines and category bars) with no new dependency. Deferred to a dedicated UX pass.
 8. **Future Settings Backup / Restore** → Export all tool localStorage keys as a single JSON archive, import to restore. No new dependency. Deferred to a settings management phase.
 
+### Phase 24: Dark Pro Sidebar Redesign
+
+Full UX overhaul. The app now ships with a sticky dark sidebar, breadcrumb topbar, category-colored tool cards, and a persistent light/dark mode toggle.
+
+1. **Completed App Shell** → Replaced the full-page centered layout with a sidebar + main-area split. The sidebar is sticky and scrolls independently from the content panel.
+2. **Completed Sidebar Navigation** → Category items now show a colored icon, a tool count badge, and an active accent indicator. All tools, Favorites, and category filters live here.
+3. **Completed Tool Cards** → Each card in the sidebar list now renders a category-colored icon box (e.g. cyan for Everyday, purple for Security) alongside the tool name.
+4. **Completed Topbar** → Slim 52 px breadcrumb bar (Tools › Category › Tool) replaces the large hero heading. Stats pill and "Local in browser" badge remain.
+5. **Completed Theme Toggle** → Sun/moon button in the sidebar footer switches between dark (default) and light mode. Choice is persisted to `localStorage`.
+
 ### Phase 23: Drag-And-Drop File Import
 
 Added drag-and-drop support to every tool that accepts a file import. Files can now be dropped onto the upload area instead of using the file picker button.

@@ -1,5 +1,19 @@
 export const PHASES = [
   {
+    phase: 24,
+    version: '0.24.0',
+    date: '2026-05-27',
+    title: 'Dark Pro Sidebar Redesign',
+    summary: 'Full UX overhaul: dark-first Pro Sidebar layout with category icons, colored tool cards, breadcrumb navigation, and a light/dark mode toggle.',
+    tools: [
+      { name: 'App Shell', change: 'Replaced full-page layout with a sticky dark sidebar + scrollable main area' },
+      { name: 'Sidebar Navigation', change: 'Category nav with colored icons, tool counts, and active indicator' },
+      { name: 'Tool Cards', change: 'Each card now shows a category-colored icon box alongside the tool name' },
+      { name: 'Topbar', change: 'Slim breadcrumb bar (Tools › Category › Tool) replaces the hero header' },
+      { name: 'Theme Toggle', change: 'Light/dark mode switch in sidebar footer, persisted to localStorage' },
+    ],
+  },
+  {
     phase: 23,
     version: '0.23.0',
     date: '2026-05-27',
